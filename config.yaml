@@ -1,0 +1,117 @@
+# config.yaml
+litellm_settings:
+  use_chat_completions_url_for_anthropic_messages: true
+  max_concurrent_requests: 100
+  num_retries: 5
+  request_timeout: 600
+  global_max_parallel_requests: 20 # Keeps you safely under Nvidia's 32 limit
+
+router_settings:
+  fallbacks: [{"claude-opus-5": ["claude-sonnet-5"]}]
+  context_window_fallbacks: [{"claude-opus-5": ["claude-sonnet-5"]}]
+  allowed_fails: 2
+  retry_after: 5
+
+model_list:
+  # 🧠 THE SMART ROUTER
+  - model_name: claude-opus-5
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: nemotron-micro
+          MEDIUM: nemotron-balanced
+          COMPLEX: nemotron-max
+          REASONING: nemotron-max
+      complexity_router_default_model: nemotron-balanced
+    model_info:
+      mode: chat
+
+  # ⚡ TIER 1: MICRO (Trivial tasks, ultra-fast, low cost)
+  # Used for: Greetings, "ls", reading single files.
+  - model_name: nemotron-micro
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+      temperature: 0.1
+      top_p: 0.95
+      max_tokens: 1024
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 256
+      drop_params: true
+    model_info:
+      mode: chat
+      max_parallel_requests: 20
+
+  # 🚀 TIER 2: FAST (Standard coding tasks)
+  # Used for: Basic refactoring, simple function writes.
+  - model_name: nemotron-fast
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+      temperature: 0.3
+      top_p: 0.95
+      max_tokens: 4096
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 2048
+      drop_params: true
+    model_info:
+      mode: chat
+      max_parallel_requests: 20
+
+  # ⚖️ TIER 3: BALANCED (Complex logic & debugging)
+  # Used for: Multi-file debugging, standard architecture.
+  - model_name: nemotron-balanced
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+      temperature: 0.6
+      top_p: 0.95
+      max_tokens: 16384
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 8192
+      drop_params: true
+    model_info:
+      mode: chat
+      max_parallel_requests: 20
+
+  # 🧠 TIER 4: MAX (Deep reasoning, full capacity)
+  # Used for: Complex system design, deep bug tracing, multi-tool trajectories.
+  - model_name: nemotron-max
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+      temperature: 1.0
+      top_p: 0.95
+      max_tokens: 16384
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 16384
+      drop_params: true
+    model_info:
+      mode: chat
+      max_parallel_requests: 20
+
+  - model_name: claude-sonnet-5
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: nemotron-micro
+          MEDIUM: nemotron-balanced
+          COMPLEX: nemotron-max
+          REASONING: nemotron-max
+      complexity_router_default_model: nemotron-balanced
+    model_info:
+      mode: chat

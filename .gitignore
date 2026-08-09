@@ -1,0 +1,15 @@
+# Ignore the actual environment variables file containing the secret API key
+.env
+
+# Python and virtual environment files
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+
+# OS generated files
+.DS_Store
+Thumbs.db
