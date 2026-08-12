@@ -178,13 +178,26 @@ setup_system_user() {
 
     if id "$SERVICE_USER" &>/dev/null; then
         ok "User '$SERVICE_USER' already exists"
+        echo ""
+        read -rp "  User 'myclaude' already exists. Re-create it? (y/N): " recreate_user
+        if [[ "$recreate_user" =~ ^[Yy]$ ]]; then
+            info "Removing existing user and re-creating..."
+            sudo userdel -r "$SERVICE_USER" 2>/dev/null || true
+            sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+            ok "Re-created system user '$SERVICE_USER'"
+        else
+            info "Keeping existing user '$SERVICE_USER'"
+        fi
     else
         sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
         ok "Created system user '$SERVICE_USER'"
     fi
 
     # Ensure repo dir is owned by service user (for venv, logs, etc.)
+    info "Setting directory ownership..."
     sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR"
+    sudo chmod 755 "$REPO_DIR"
+    ok "Directory permissions set"
 }
 
 # ============================================================
@@ -195,6 +208,12 @@ setup_venv() {
 
     # Ensure directory is writable by service user
     sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR"
+    sudo chmod 755 "$REPO_DIR"
+
+    # Verify we can write as the service user
+    if ! sudo -u "$SERVICE_USER" test -w "$REPO_DIR"; then
+        fail "Cannot write to $REPO_DIR as $SERVICE_USER. Check permissions."
+    fi
 
     if [ ! -d "$VENV_DIR" ]; then
         sudo -u "$SERVICE_USER" python3 -m venv "$VENV_DIR"

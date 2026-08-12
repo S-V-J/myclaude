@@ -78,47 +78,44 @@ install-claude:
 	fi
 
 # ============================================================
-# WRAPPER SCRIPT
+# WRAPPER SCRIPT (using printf to avoid heredoc issues)
 # ============================================================
 install-wrapper:
 	@echo "📦 Installing 'myclaude' command wrapper..."
-	@cat > /tmp/myclaude <<'EOF'
-#!/bin/bash
-SERVICE_NAME="myclaude"
-
-if ! systemctl is-active --quiet "$$SERVICE_NAME" 2>/dev/null; then
-    echo "Starting MyClaude proxy..."
-    sudo systemctl start "$$SERVICE_NAME"
-    sleep 3
-    if ! systemctl is-active --quiet "$$SERVICE_NAME" 2>/dev/null; then
-        echo "Failed to start. Check: journalctl -u $$SERVICE_NAME -n 20"
-        exit 1
-    fi
-fi
-
-export ANTHROPIC_BASE_URL="http://localhost:4000"
-export ANTHROPIC_API_KEY="sk-local-proxy-key"
-
-echo "Launching Claude Code via MyClaude proxy..."
-exec claude "$$@"
-EOF
+	@printf '%s\n' '#!/bin/bash' \
+	'SERVICE_NAME="myclaude"' \
+	'' \
+	'if ! systemctl is-active --quiet "$$SERVICE_NAME" 2>/dev/null; then' \
+	'    echo "Starting MyClaude proxy..."' \
+	'    sudo systemctl start "$$SERVICE_NAME"' \
+	'    sleep 3' \
+	'    if ! systemctl is-active --quiet "$$SERVICE_NAME" 2>/dev/null; then' \
+	'        echo "Failed to start. Check: journalctl -u $$SERVICE_NAME -n 20"' \
+	'        exit 1' \
+	'    fi' \
+	'fi' \
+	'' \
+	'export ANTHROPIC_BASE_URL="http://localhost:4000"' \
+	'export ANTHROPIC_API_KEY="sk-local-proxy-key"' \
+	'' \
+	'echo "Launching Claude Code via MyClaude proxy..."' \
+	'exec claude "$$@"' > /tmp/myclaude
 	@sudo cp /tmp/myclaude /usr/local/bin/myclaude
 	@sudo chmod +x /usr/local/bin/myclaude
+	@echo "✅ Wrapper installed"
 
 # ============================================================
-# BASH ALIASES
+# BASH ALIASES (using printf)
 # ============================================================
 setup-bash:
 	@echo "📝 Adding bash aliases..."
-	@grep -q "# >>> MyClaude >>>" ~/.bashrc || cat >> ~/.bashrc <<'EOF'
-
-# >>> MyClaude >>>
-alias myclaude-start='sudo systemctl start myclaude'
-alias myclaude-stop='sudo systemctl stop myclaude'
-alias myclaude-status='sudo systemctl status myclaude'
-alias myclaude-logs='journalctl -u myclaude -f'
-# <<< MyClaude <<<
-EOF
+	@grep -q "# >>> MyClaude >>>" ~/.bashrc || printf '%s\n' '' \
+	'# >>> MyClaude >>>' \
+	'alias myclaude-start='"'"'sudo systemctl start myclaude'"'"'' \
+	'alias myclaude-stop='"'"'sudo systemctl stop myclaude'"'"'' \
+	'alias myclaude-status='"'"'sudo systemctl status myclaude'"'"'' \
+	'alias myclaude-logs='"'"'journalctl -u myclaude -f'"'"'' \
+	'# <<< MyClaude <<<' >> ~/.bashrc
 	@echo "✅ Aliases added (run 'source ~/.bashrc')"
 
 # ============================================================
