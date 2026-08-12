@@ -56,6 +56,13 @@ check_prereqs() {
     ok "All prerequisites met"
 }
 
+# Auto-install missing system packages
+auto_install_system() {
+    info "Installing system packages (nginx, python3, python3-venv)..."
+    sudo apt update -y
+    sudo apt install -y nginx python3 python3-venv python3-pip curl git
+}
+
 # ============================================================
 # STEP 1: NVIDIA API KEY
 # ============================================================
@@ -185,6 +192,9 @@ setup_system_user() {
 # ============================================================
 setup_venv() {
     info "Setting up Python virtual environment..."
+
+    # Ensure directory is writable by service user
+    sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR"
 
     if [ ! -d "$VENV_DIR" ]; then
         sudo -u "$SERVICE_USER" python3 -m venv "$VENV_DIR"
@@ -492,6 +502,7 @@ main() {
     echo ""
 
     check_sudo
+    auto_install_system
     check_prereqs
     ask_api_key
     setup_system_user
