@@ -1,16 +1,32 @@
-# Ignore the actual environment variables file containing the secret API key
+# Secrets — never commit
 .env
 
-# Python and virtual environment files
+# Python
 venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 
-# OS generated files
+# OS / Editor
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+
+# Logs
+*.log
 litellm.log
+
+# Temporary test files
+debug_*.py
+test_*.py
+*_payload.py
+step*.py
+
+# Node (if any leftover)
+node_modules/
+
+# Git
+.git

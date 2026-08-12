@@ -1,0 +1,16 @@
+[Unit]
+Description=LiteLLM Proxy for MyClaude (NVIDIA NIM)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=__REPO_DIR__/.env
+Environment="PORT=4001"
+ExecStart=__VENV_DIR__/litellm --config __REPO_DIR__/config.yaml --port 4001
+Restart=always
+RestartSec=5
+User=__SERVICE_USER__
+
+[Install]
+WantedBy=multi-user.target
