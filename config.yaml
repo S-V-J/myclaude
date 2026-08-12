@@ -11,9 +11,10 @@ general_settings:
   num_retries: 5
 
 router_settings:
-  # Opus 5 falls back to Sonnet 5
-  fallbacks: [{"claude-opus-5": ["claude-sonnet-5"]}]
-  context_window_fallbacks: [{"claude-opus-5": ["claude-sonnet-5"]}]
+  # No fallback chain between claude-opus-5 and claude-sonnet-5 — both route to
+  # the same NVIDIA upstream via auto_router, so a failure on one will
+  # always fail on the other (e.g. unsupported image formats).
+  # Retries (num_retries) still handle transient network errors.
   allowed_fails: 3
   retry_after: 5
   cooldown_time: 5
@@ -31,9 +32,9 @@ model_list:
           MEDIUM: nemotron-unified
           COMPLEX: stepfun-ai-unified
           REASONING: stepfun-ai-unified
-      complexity_router_default_model: nemotron-unified
-    model_info:
-      mode: chat
+        complexity_router_default_model: nemotron-unified
+      model_info:
+        mode: chat
 
   # 🧠 SONNET 5 → routes to stepfun-ai-unified (StepFun Step-3.7-Flash)
   - model_name: claude-sonnet-5
@@ -45,9 +46,9 @@ model_list:
           MEDIUM: stepfun-ai-unified
           COMPLEX: stepfun-ai-unified
           REASONING: stepfun-ai-unified
-      complexity_router_default_model: stepfun-ai-unified
-    model_info:
-      mode: chat
+        complexity_router_default_model: stepfun-ai-unified
+      model_info:
+        mode: chat
 
   # ⚡ NEMOTRON TIER: NVIDIA Nemotron 3 Ultra (backend for Opus 5)
   - model_name: nemotron-unified
@@ -62,8 +63,13 @@ model_list:
       tpm: 100000
       max_parallel_requests: 15
       drop_params: true
-    model_info:
-      mode: chat
+      # Enable thinking/reasoning mode for Nemotron
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 16384
+      model_info:
+        mode: chat
 
   # ⚡ STEPFUN TIER: StepFun Step-3.7-Flash (backend for Sonnet 5)
   - model_name: stepfun-ai-unified
@@ -78,5 +84,5 @@ model_list:
       tpm: 100000
       max_parallel_requests: 15
       drop_params: true
-    model_info:
-      mode: chat
+      model_info:
+        mode: chat

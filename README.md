@@ -1,7 +1,7 @@
 # 🤖 MyClaude — Claude Code via NVIDIA NIM Proxy
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-❤️-red)](https://github.com/sponsors/S-V-J)
-[![GitHub stars](https://img.shields.io/github/stars/S-V-J/myclaude)](https://github.com/S-V-J/myclaude/stargazers)
+[![GitHub stars](https://img.shields.io/badge/GitHub%20stars-⭐-yellow)](https://github.com/S-V-J/myclaude/stargazers)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 MyClaude lets you run [Claude Code](https://docs.anthropic.com/en/docs/claude-code) using NVIDIA NIM models instead of Anthropic's API. It sets up a local LiteLLM proxy that translates Anthropic-format requests into OpenAI-compatible calls to NVIDIA's infrastructure — no code changes to Claude Code needed.
@@ -9,22 +9,23 @@ MyClaude lets you run [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 ## How It Works
 
 ```
-┌──────────────┐     :4000      ┌──────────────┐     :4001      ┌──────────────┐
-│  Claude Code │ ─────────────▶│    nginx     │ ─────────────▶│   LiteLLM    │
-│  (Anthropic) │ ◀─────────────│  (rate limit)│ ◀─────────────│  (proxy)     │
-└──────────────┘               └──────────────┘               └──────┬───────┘
-                                                                     │
-                                                                     ▼
-                                                        ┌──────────────────────────┐
-                                                        │      NVIDIA NIM API      │
-                                                        │  ┌────────────────────┐  │
-                                                        │  │ claude-opus-5      │  │
-                                                        │  │  → Nemotron 3 Ultra │  │
-                                                        │  ├────────────────────┤  │
-                                                        │  │ claude-sonnet-5    │  │
-                                                        │  │  → Step-3.7-Flash  │  │
-                                                        │  └────────────────────┘  │
-                                                        └──────────────────────────┘
+              :4000              :4001
+                  ┌──────────┐       ┌──────────┐
+                  │ Claude   │──────▶│  nginx   │──────▶│ LiteLLM │
+                  │  Code    │◀──────│ (rate    │◀──────│ (proxy) │
+                  │(Anthropic)│       │  limit)  │       └────┬─────┘
+                  └──────────┘       └──────────┘            │
+                                                             ▼
+                                                ┌──────────────────────┐
+                                                │   NVIDIA NIM API     │
+                                                │  ┌────────────────┐  │
+                                                │  │ claude-opus-5  │  │
+                                                │  │→ Nemotron Ultra│  │
+                                                │  ├────────────────┤  │
+                                                │  │claude-sonnet-5 │  │
+                                                │  │→ Step-3.7 Flash│  │
+                                                │  └────────────────┘  │
+                                                └──────────────────────┘
 ```
 
 1. **Claude Code** sends Anthropic-format requests to `http://localhost:4000`
@@ -51,20 +52,90 @@ LiteLLM's complexity router evaluates each prompt and routes `claude-opus-5` req
 
 ## Prerequisites
 
+- **NVIDIA NIM API key** — free tier available at [build.nvidia.com](https://build.nvidia.com) (easy to create, watch a YouTube tutorial if needed)
 - **Linux** with systemd (Ubuntu, Debian, WSL2, etc.)
 - **Python 3.10+**
-- **NVIDIA NIM API key** — free tier available at [build.nvidia.com](https://build.nvidia.com)
 - **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code`
 - **nginx** — `sudo apt install nginx`
 - **sudo access** — for system user creation and service setup
 
 ## Installation
 
-One command — that's it:
+### Option 1: Makefile (Fully Automated — Recommended)
+
+```bash
+git clone https://github.com/S-V-J/myclaude.git && cd myclaude && make install
+```
+
+This runs **everything** automatically:
+- `apt update && apt upgrade -y`
+- Installs `nginx`, `python3`, `python3-venv`, `python3-pip`, `curl`, `git`
+- Creates system user `myclaude`
+- Sets up Python venv + LiteLLM with FastAPI fix
+- Configures nginx reverse proxy with rate limiting
+- Installs systemd service with auto-restart
+- Installs Claude Code CLI via npm
+- Adds `myclaude` command wrapper and bash aliases
+- Verifies the full proxy chain works
+
+### Option 2: Original Installer (Interactive)
 
 ```bash
 git clone https://github.com/S-V-J/myclaude.git && cd myclaude && bash install.sh
 ```
+
+This prompts for your NVIDIA API key and optional LAN access.
+
+### Option 3: Windows + WSL
+
+If you have **Windows only**, follow the WSL guide below.
+
+### WSL — Step-by-Step Setup
+
+**1. Open PowerShell as Administrator**
+
+Press `Win + X` → Select "Windows Terminal (Admin)" or "PowerShell (Admin)" and confirm the UAC prompt.
+
+**2. Install Ubuntu 26.04 via WSL2**
+
+Check available versions:
+```bash
+wsl --list --online
+```
+
+Install:
+```bash
+wsl --install -d Ubuntu-26.04 --name myclaude --web-download
+```
+
+*(`myclaude` is just an example name — feel free to change it.)*
+
+**Command Breakdown:**
+
+| Part | Purpose |
+|---|---|
+| `wsl --install` | Installs the WSL feature |
+| `-d Ubuntu-26.04` | Specific Ubuntu version |
+| `--name myclaude` | Friendly WSL instance name |
+| `--web-download` | Download from Microsoft Store catalog |
+
+**3. Create Your Linux User**
+
+When the installation completes, a terminal window will open asking for:
+```
+Enter new UNIX username: myclaude     ← create your own
+New password: ********               ← choose a password
+Retype new password: ********
+```
+
+**4. Run the installer**
+
+Once inside your WSL Ubuntu terminal:
+```bash
+git clone https://github.com/S-V-J/myclaude.git && cd myclaude && bash install.sh
+```
+
+The installer handles everything — Python venv, LiteLLM, nginx, systemd service, the works.
 
 ### What the installer does
 
@@ -81,18 +152,18 @@ git clone https://github.com/S-V-J/myclaude.git && cd myclaude && bash install.s
 ## Usage
 
 ```bash
-myclaude            # launch Claude Code with NVIDIA models
-myclaude --help     # pass arguments through to Claude Code
-myclaude "prompt"   # one-shot prompt
+myclaude              # launch Claude Code with NVIDIA models
+myclaude --help       # pass arguments through to Claude Code
+myclaude "prompt"     # one-shot prompt
 ```
 
 ### Service Management
 
 ```bash
-sudo systemctl status myclaude    # check if proxy is running
-sudo systemctl restart myclaude   # restart after config changes
-sudo systemctl stop myclaude      # stop the proxy
-journalctl -u myclaude -f         # live log tail
+sudo systemctl status myclaude   # check if proxy is running
+sudo systemctl restart myclaude  # restart after config changes
+sudo systemctl stop myclaude     # stop the proxy
+journalctl -u myclaude -f        # live log tail
 ```
 
 ### Convenience Aliases
@@ -100,10 +171,10 @@ journalctl -u myclaude -f         # live log tail
 After `source ~/.bashrc` or opening a new terminal:
 
 ```bash
-myclaude-status   # sudo systemctl status myclaude
-myclaude-logs     # journalctl -u myclaude -f
-myclaude-start    # sudo systemctl start myclaude
-myclaude-stop     # sudo systemctl stop myclaude
+myclaude-status  # sudo systemctl status myclaude
+myclaude-logs    # journalctl -u myclaude -f
+myclaude-start   # sudo systemctl start myclaude
+myclaude-stop    # sudo systemctl stop myclaude
 ```
 
 ## Configuration Reference
