@@ -28,5 +28,8 @@ step*.py
 # Node (if any leftover)
 node_modules/
 
+# Developer notes (not for public release)
+DEV-NOTES.md
+
 # Git
 .git
