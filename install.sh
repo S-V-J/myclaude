@@ -7,8 +7,17 @@ set -euo pipefail
 # ============================================================
 
 # Get repo directory - works both when run directly and when piped to bash
+# Disable unbound variable check temporarily for BASH_SOURCE detection
+set +u
 if [ -n "${BASH_SOURCE[0]:-}" ] && [ "${BASH_SOURCE[0]}" != "bash" ]; then
-    REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    SRC="${BASH_SOURCE[0]}"
+else
+    SRC=""
+fi
+set -u
+
+if [ -n "$SRC" ]; then
+    REPO_DIR="$(cd "$(dirname "$SRC")" && pwd)"
 else
     # When piped to bash (curl ... | bash), use current directory or /tmp
     REPO_DIR="${PWD}"
