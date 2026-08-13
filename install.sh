@@ -6,7 +6,18 @@ set -euo pipefail
 # Claude Code + LiteLLM + NVIDIA NIM Proxy
 # ============================================================
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get repo directory - works both when run directly and when piped to bash
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ "${BASH_SOURCE[0]}" != "bash" ]; then
+    REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    # When piped to bash (curl ... | bash), use current directory or /tmp
+    REPO_DIR="${PWD}"
+    # If we're in a temp location or not the repo, clone it
+    if [ ! -f "$REPO_DIR/install.sh" ] || [ ! -f "$REPO_DIR/config.yaml" ]; then
+        REPO_DIR="/tmp/myclaude-install-$$"
+        git clone --depth 1 https://github.com/S-V-J/myclaude.git "$REPO_DIR" >/dev/null 2>&1
+    fi
+fi
 SERVICE_NAME="myclaude"
 NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 VENV_DIR="$REPO_DIR/venv"
@@ -662,6 +673,9 @@ setup_lan_hosting() {
 # MAIN
 # ============================================================
 main() {
+    # Ensure we're in the repo directory
+    cd "$REPO_DIR"
+
     echo ""
     echo "============================================================"
     echo " 🤖 MyClaude Installer"
