@@ -141,10 +141,11 @@ setup_system_user() {
     fi
 
     # Ensure repo dir is owned by service user (for venv, logs, etc.)
+    # On WSL with Windows filesystem, chown may not work, but we try
     info "Setting directory ownership to '$SERVICE_USER'..."
-    sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR"
-    sudo chmod 755 "$REPO_DIR"
-    ok "Directory permissions set"
+    sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR" 2>/dev/null || true
+    sudo chmod 755 "$REPO_DIR" 2>/dev/null || true
+    ok "Directory permissions set (best effort)"
 }
 
 # ============================================================
@@ -154,28 +155,41 @@ setup_venv() {
     info "Setting up Python virtual environment..."
 
     # Double-check ownership
-    sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR"
+    sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR" 2>/dev/null || true
+    sudo chmod 755 "$REPO_DIR" 2>/dev/null || true
 
     # Verify we can write as the service user BEFORE attempting venv creation
+    # On WSL with Windows filesystem mounts, chown/chmod may not work properly,
+    # so we fall back to creating venv as current user if service user can't write
     info "Verifying write access for '$SERVICE_USER'..."
-    if ! sudo -u "$SERVICE_USER" test -w "$REPO_DIR"; then
-        fail "Cannot write to $REPO_DIR as $SERVICE_USER. Check permissions."
+    if sudo -u "$SERVICE_USER" test -w "$REPO_DIR" 2>/dev/null; then
+        ok "Write access verified for service user"
+        VENV_AS_USER="$SERVICE_USER"
+    else
+        warn "Service user cannot write to $REPO_DIR (common on WSL). Falling back to current user for venv."
+        VENV_AS_USER="$(logname 2>/dev/null || echo $SUDO_USER || echo $USER)"
+        # Ensure current user owns the directory for venv creation
+        sudo chown -R "$VENV_AS_USER:$VENV_AS_USER" "$REPO_DIR" 2>/dev/null || true
     fi
-    ok "Write access verified"
 
     # Create venv
     if [ ! -d "$VENV_DIR" ]; then
-        info "Creating virtual environment..."
-        sudo -u "$SERVICE_USER" python3 -m venv "$VENV_DIR"
+        info "Creating virtual environment as $VENV_AS_USER..."
+        sudo -u "$VENV_AS_USER" python3 -m venv "$VENV_DIR"
         ok "Virtual environment created"
     else
         ok "Virtual environment already exists"
     fi
 
+    # Ensure venv is owned by service user for runtime (if different from creator)
+    if [ "$VENV_AS_USER" != "$SERVICE_USER" ]; then
+        sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR" 2>/dev/null || true
+    fi
+
     # Install LiteLLM
     info "Installing/updating LiteLLM..."
-    sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
-    sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install 'litellm[proxy]' "fastapi<0.140.0" --quiet
+    sudo -u "$VENV_AS_USER" "$VENV_DIR/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
+    sudo -u "$VENV_AS_USER" "$VENV_DIR/bin/pip" install 'litellm[proxy]' "fastapi<0.140.0" --quiet
     ok "LiteLLM installed"
 }
 
@@ -209,7 +223,10 @@ setup_systemd() {
     info "Setting up myclaude systemd service..."
 
     # Ensure .env is readable by service user
-    sudo chown "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR/.env"
+    sudo chown "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR/.env" 2>/dev/null || true
+
+    # Ensure venv is readable by service user
+    sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR" 2>/dev/null || true
 
     # Generate service file from template
     local svc
