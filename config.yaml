@@ -1,60 +1,28 @@
 # config.yaml
 litellm_settings:
   use_chat_completions_url_for_anthropic_messages: true
-  num_retries: 5
+  num_retries: 3
   request_timeout: 3600
   master_key: os.environ/LITELLM_MASTER_KEY
 
 general_settings:
   global_max_parallel_requests: 15
   request_timeout: 3600
-  num_retries: 5
+  num_retries: 3
 
 router_settings:
-  # No fallback chain between claude-opus-5 and claude-sonnet-5 — both route to
-  # the same NVIDIA upstream via auto_router, so a failure on one will
-  # always fail on the other (e.g. unsupported image formats).
-  # Retries (num_retries) still handle transient network errors.
   allowed_fails: 3
   retry_after: 5
   cooldown_time: 5
   routing_strategy: "least-busy"
   default_max_parallel_requests: 15
+  health_check_timeout: 36000  # ⭐ CRITICAL: Gives Nemotron up to 10 hours to respond to health checks
 
 model_list:
-  # 🧠 OPUS 5 → routes to nemotron-unified (NVIDIA Nemotron 3 Ultra)
+  # 🧠 OPUS 5 → Direct to NVIDIA Nemotron 3 Ultra
   - model_name: claude-opus-5
     litellm_params:
-      model: auto_router/complexity_router
-      complexity_router_config:
-        tiers:
-          SIMPLE: nemotron-unified
-          MEDIUM: nemotron-unified
-          COMPLEX: stepfun-ai-unified
-          REASONING: stepfun-ai-unified
-        complexity_router_default_model: nemotron-unified
-      model_info:
-        mode: chat
-
-  # 🧠 SONNET 5 → routes to stepfun-ai-unified (StepFun Step-3.7-Flash)
-  - model_name: claude-sonnet-5
-    litellm_params:
-      model: auto_router/complexity_router
-      complexity_router_config:
-        tiers:
-          SIMPLE: stepfun-ai-unified
-          MEDIUM: stepfun-ai-unified
-          COMPLEX: stepfun-ai-unified
-          REASONING: stepfun-ai-unified
-        complexity_router_default_model: stepfun-ai-unified
-      model_info:
-        mode: chat
-
-  # ⚡ NEMOTRON TIER: NVIDIA Nemotron 3 Ultra (backend for Opus 5)
-  - model_name: nemotron-unified
-    litellm_params:
-      model: openai/nvidia/nemotron-3-ultra-550b-a55b
-      api_base: https://integrate.api.nvidia.com/v1
+      model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
       api_key: os.environ/NVIDIA_API_KEY
       temperature: 1.0
       top_p: 0.95
@@ -63,7 +31,7 @@ model_list:
       tpm: 100000
       max_parallel_requests: 15
       drop_params: true
-      # Enable thinking/reasoning mode for Nemotron
+      fallbacks: ["claude-sonnet-5"]
       extra_body:
         chat_template_kwargs:
           enable_thinking: true
@@ -71,11 +39,10 @@ model_list:
       model_info:
         mode: chat
 
-  # ⚡ STEPFUN TIER: StepFun Step-3.7-Flash (backend for Sonnet 5)
-  - model_name: stepfun-ai-unified
+  # 🧠 SONNET 5 → Direct to StepFun Step-3.7-Flash
+  - model_name: claude-sonnet-5
     litellm_params:
-      model: openai/stepfun-ai/step-3.7-flash
-      api_base: https://integrate.api.nvidia.com/v1
+      model: nvidia_nim/stepfun-ai/step-3.7-flash
       api_key: os.environ/STEPFUN_API_KEY
       temperature: 1.0
       top_p: 0.95
