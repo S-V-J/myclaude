@@ -30,21 +30,73 @@ NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 VENV_DIR="$REPO_DIR/venv"
 SERVICE_USER="myclaude"
 
-# Check for whiptail/dialog and TTY
+# Detect OS and package manager
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_ID="${ID:-unknown}"
+        OS_VERSION="${VERSION_ID:-}"
+    else
+        OS_ID="unknown"
+    fi
+
+    if command -v apt &>/dev/null; then
+        PKG_MGR="apt"
+    elif command -v dnf &>/dev/null; then
+        PKG_MGR="dnf"
+    elif command -v yum &>/dev/null; then
+        PKG_MGR="yum"
+    elif command -v pacman &>/dev/null; then
+        PKG_MGR="pacman"
+    elif command -v zypper &>/dev/null; then
+        PKG_MGR="zypper"
+    else
+        PKG_MGR="unknown"
+    fi
+}
+
+# Check if running in WSL
+is_wsl() {
+    grep -qi microsoft /proc/version 2>/dev/null || grep -qi wsl /proc/version 2>/dev/null
+}
+
+# Check for TTY (interactive terminal)
+has_tty() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+# Check for whiptail/dialog
+check_tui() {
+    if command -v whiptail &>/dev/null; then
+        echo "whiptail"
+    elif command -v dialog &>/dev/null; then
+        echo "dialog"
+    else
+        echo "none"
+    fi
+}
+
+TUI_TOOL=$(check_tui)
 USE_TUI=false
-if command -v whiptail &>/dev/null && [ -t 0 ] && [ -t 1 ]; then
+if [ "$TUI_TOOL" != "none" ] && has_tty; then
     USE_TUI=true
-elif ! command -v whiptail &>/dev/null; then
-    echo "Installing whiptail for TUI..."
-    sudo apt update && sudo apt install -y whiptail 2>/dev/null && USE_TUI=true
 fi
 
+# ============================================================
 # TUI helper functions (with fallback to read)
+# ============================================================
 tui_msgbox() {
+    local msg="$1"
+    local height="${2:-12}"
+    local width="${3:-70}"
     if [ "$USE_TUI" = true ]; then
-        whiptail --title "MyClaude Installer" --msgbox "$1" 12 70
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "MyClaude Installer" --msgbox "$msg" "$height" "$width"
+        else
+            dialog --title "MyClaude Installer" --msgbox "$msg" "$height" "$width"
+        fi
     else
-        echo -e "\n=== $1 ===\n"
+        echo -e "\n=== $msg ===\n"
         read -rp "Press Enter to continue..." _
     fi
 }
@@ -53,7 +105,11 @@ tui_inputbox() {
     local prompt="$1"
     local default="$2"
     if [ "$USE_TUI" = true ]; then
-        whiptail --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
+        else
+            dialog --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
+        fi
     else
         read -rp "$prompt [$default]: " input
         echo "${input:-$default}"
@@ -63,7 +119,11 @@ tui_inputbox() {
 tui_passwordbox() {
     local prompt="$1"
     if [ "$USE_TUI" = true ]; then
-        whiptail --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
+        else
+            dialog --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
+        fi
     else
         read -rsp "$prompt: " input
         echo
@@ -74,7 +134,11 @@ tui_passwordbox() {
 tui_yesno() {
     local prompt="$1"
     if [ "$USE_TUI" = true ]; then
-        whiptail --title "MyClaude Installer" --yesno "$prompt" 12 70
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "MyClaude Installer" --yesno "$prompt" 12 70
+        else
+            dialog --title "MyClaude Installer" --yesno "$prompt" 12 70
+        fi
     else
         read -rp "$prompt (y/N): " ans
         [[ "$ans" =~ ^[Yy]$ ]]
@@ -85,22 +149,71 @@ tui_checklist() {
     local prompt="$1"
     local items="$2"
     if [ "$USE_TUI" = true ]; then
-        whiptail --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
+        else
+            dialog --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
+        fi
     else
         echo "$prompt"
-        echo "$items" | tr ' ' '\n' | while read -r item; do
+        local selected=""
+        for item in $items; do
+            item=$(echo "$item" | tr -d '"')
             read -rp "Enable $item? (y/N): " ans
-            [[ "$ans" =~ ^[Yy]$ ]] && echo "$item"
+            [[ "$ans" =~ ^[Yy]$ ]] && selected="$selected $item"
         done
+        echo "$selected"
     fi
 }
 
 tui_gauge() {
     if [ "$USE_TUI" = true ]; then
-        whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
+        else
+            dialog --title "MyClaude Installer" --gauge "$1" 10 70 0
+        fi
     else
         echo "$1"
         cat  # consume stdin
+    fi
+}
+
+# ============================================================
+# System package installation
+# ============================================================
+install_system_packages() {
+    detect_os
+
+    case "$PKG_MGR" in
+        apt)
+            sudo apt update -y
+            sudo apt install -y nginx python3 python3-venv python3-pip curl git whiptail 2>/dev/null || true
+            # Install whiptail for TUI if not present
+            if ! command -v whiptail &>/dev/null; then
+                sudo apt install -y whiptail 2>/dev/null || true
+            fi
+            ;;
+        dnf)
+            sudo dnf install -y nginx python3 python3-venv python3-pip curl git newt 2>/dev/null || true
+            ;;
+        yum)
+            sudo yum install -y nginx python3 python3-venv python3-pip curl git newt 2>/dev/null || true
+            ;;
+        pacman)
+            sudo pacman -Sy --noconfirm nginx python python-pip curl git libnewt 2>/dev/null || true
+            ;;
+        zypper)
+            sudo zypper install -y nginx python3 python3-venv python3-pip curl git python3-newt 2>/dev/null || true
+            ;;
+        *)
+            echo "WARNING: Unknown package manager. Please install manually: nginx python3 python3-venv python3-pip curl git"
+            ;;
+    esac
+
+    # Ensure whiptail/dialog is available for TUI
+    if ! command -v whiptail &>/dev/null && ! command -v dialog &>/dev/null; then
+        USE_TUI=false
     fi
 }
 
@@ -112,7 +225,7 @@ tui_step1_api_keys() {
 
     # Key 1 - Required
     while true; do
-        NVIDIA_API_KEY=$(tui_passwordbox "Key 1: Primary NVIDIA (Required)\n\nEnter your NVIDIA NIM API key:" "")
+        NVIDIA_API_KEY=$(tui_passwordbox "Key 1: Primary NVIDIA (Required)\n\nEnter your NVIDIA NIM API key (nvapi-...):" "")
         if [ -n "$NVIDIA_API_KEY" ]; then
             break
         fi
@@ -120,13 +233,13 @@ tui_step1_api_keys() {
     done
 
     # Key 2 - Optional
-    STEPFUN_API_KEY=$(tui_passwordbox "Key 2: StepFun (Optional)\n\nEnter StepFun API key for stepfun-ai models (press Enter to skip):" "")
+    NEMOTRON_SUPER_API_KEY=$(tui_passwordbox "Key 2: Nemotron Super (Optional)\n\nEnter API key for nemotron-3-super (press Enter to skip, falls back to Key 1):" "")
 
     # Key 3 - Optional
-    MINIMAX_API_KEY=$(tui_passwordbox "Key 3: Minimax (Optional)\n\nEnter Minimax API key for minimaxai models (press Enter to skip):" "")
+    MINIMAX_API_KEY=$(tui_passwordbox "Key 3: Minimax (Optional)\n\nEnter Minimax API key for minimax-m3 (press Enter to skip, falls back to Key 1):" "")
 
     # Key 4 - Optional
-    POOLSIDE_API_KEY=$(tui_passwordbox "Key 4: Poolside (Optional)\n\nEnter Poolside API key for poolside models (press Enter to skip):" "")
+    STEPFUN_API_KEY=$(tui_passwordbox "Key 4: StepFun (Optional)\n\nEnter StepFun API key for step-3.7-flash (press Enter to skip, falls back to Key 1):" "")
 
     # Validate keys by testing
     if tui_yesno "Test API keys now? (Recommended)"; then
@@ -149,8 +262,9 @@ test_keys() {
         echo 100
     } | tui_gauge "Testing API keys..."
 
-    # Test NVIDIA key
     local test_result
+
+    # Test NVIDIA key (Nemotron 3 Ultra)
     test_result=$(curl -s --max-time 15 \
         -H "Authorization: Bearer $NVIDIA_API_KEY" \
         -H "Content-Type: application/json" \
@@ -158,23 +272,23 @@ test_keys() {
         -d '{"model":"nvidia/nemotron-3-ultra-550b-a55b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
     if echo "$test_result" | grep -q "choices\|content"; then
-        tui_msgbox "✓ Key 1 (NVIDIA): Valid"
+        tui_msgbox "✓ Key 1 (NVIDIA - Nemotron 3 Ultra): Valid"
     else
         tui_msgbox "✗ Key 1 (NVIDIA): Invalid or rate limited\n\n$test_result"
     fi
 
-    # Test StepFun if provided
-    if [ -n "$STEPFUN_API_KEY" ]; then
+    # Test Nemotron Super if provided
+    if [ -n "$NEMOTRON_SUPER_API_KEY" ]; then
         test_result=$(curl -s --max-time 15 \
-            -H "Authorization: Bearer $STEPFUN_API_KEY" \
+            -H "Authorization: Bearer $NEMOTRON_SUPER_API_KEY" \
             -H "Content-Type: application/json" \
             -X POST https://integrate.api.nvidia.com/v1/chat/completions \
-            -d '{"model":"stepfun-ai/step-3.7-flash","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
+            -d '{"model":"nvidia/nemotron-3-super-120b-a12b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
-            tui_msgbox "✓ Key 2 (StepFun): Valid"
+            tui_msgbox "✓ Key 2 (Nemotron Super): Valid"
         else
-            tui_msgbox "✗ Key 2 (StepFun): Invalid or rate limited"
+            tui_msgbox "✗ Key 2 (Nemotron Super): Invalid or rate limited"
         fi
     fi
 
@@ -187,24 +301,24 @@ test_keys() {
             -d '{"model":"minimaxai/minimax-m3","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
-            tui_msgbox "✓ Key 3 (Minimax): Valid"
+            tui_msgbox "✓ Key 3 (Minimax M3): Valid"
         else
             tui_msgbox "✗ Key 3 (Minimax): Invalid or rate limited"
         fi
     fi
 
-    # Test Poolside if provided
-    if [ -n "$POOLSIDE_API_KEY" ]; then
+    # Test StepFun if provided
+    if [ -n "$STEPFUN_API_KEY" ]; then
         test_result=$(curl -s --max-time 15 \
-            -H "Authorization: Bearer $POOLSIDE_API_KEY" \
+            -H "Authorization: Bearer $STEPFUN_API_KEY" \
             -H "Content-Type: application/json" \
             -X POST https://integrate.api.nvidia.com/v1/chat/completions \
-            -d '{"model":"poolside/laguna-xs-2.1","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
+            -d '{"model":"stepfun-ai/step-3.7-flash","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
-            tui_msgbox "✓ Key 4 (Poolside): Valid"
+            tui_msgbox "✓ Key 4 (StepFun Step-3.7-Flash): Valid"
         else
-            tui_msgbox "✗ Key 4 (Poolside): Invalid or rate limited"
+            tui_msgbox "✗ Key 4 (StepFun): Invalid or rate limited"
         fi
     fi
 }
@@ -213,7 +327,7 @@ test_keys() {
 # STEP 2: Model Mapping (TUI)
 # ============================================================
 tui_step2_model_mapping() {
-    tui_msgbox "Step 2 of 4: Model Mapping\n\nMap each Claude Code model to an NVIDIA backend.\n\nCurrent defaults:\n• claude-opus-5 → nemotron-3-ultra (Key 1)\n• claude-sonnet-5 → step-3.7-flash (Key 2)\n• claude-sonnet-5-1m → minimax-m3 (Key 3)\n• claude-haiku-4-5 → laguna-xs-2.1 (Key 4)"
+    tui_msgbox "Step 2 of 4: Model Mapping\n\nMap each Claude Code model to an NVIDIA backend.\n\nCurrent defaults:\n• claude-opus-5 → nemotron-3-ultra (Key 1)\n• claude-sonnet-5 → nemotron-3-super (Key 2)\n• claude-sonnet-5-1m → minimax-m3 (Key 3)\n• claude-haiku-4-5 → step-3.7-flash (Key 4)"
 
     # For now, use defaults. Advanced users can edit config.yaml later
     if tui_yesno "Use default model mapping?\n\n(You can customize later by editing config.yaml)"; then
@@ -293,7 +407,11 @@ tui_step4_payload() {
   }
 }
 EOF
-        whiptail --title "Default Payload" --textbox /tmp/payload_example.json 20 80
+        if [ "$TUI_TOOL" = "whiptail" ]; then
+            whiptail --title "Default Payload" --textbox /tmp/payload_example.json 20 80
+        else
+            dialog --title "Default Payload" --textbox /tmp/payload_example.json 20 80
+        fi
     fi
 
     return 0
@@ -346,34 +464,20 @@ run_installation() {
 # ORIGINAL INSTALL FUNCTIONS (adapted for TUI)
 # ============================================================
 
-install_system_packages() {
-    if ! command -v nginx &>/dev/null; then
-        sudo apt install -y nginx
-    fi
-    if ! python3 -m venv --help &>/dev/null 2>&1; then
-        sudo apt install -y python3 python3-venv python3-pip
-    fi
-    for pkg in curl git; do
-        if ! command -v "$pkg" &>/dev/null; then
-            sudo apt install -y "$pkg"
-        fi
-    done
-}
-
 write_env_file() {
     LOCAL_KEY="sk-local-$(openssl rand -hex 16 2>/dev/null || echo "proxykey$(date +%s)")"
     cat > "$REPO_DIR/.env" <<ENVEOF
 # MyClaude Environment Configuration
 NVIDIA_API_KEY="$NVIDIA_API_KEY"
 ENVEOF
-    if [ -n "$STEPFUN_API_KEY" ]; then
-        echo "STEPFUN_API_KEY=\"$STEPFUN_API_KEY\"" >> "$REPO_DIR/.env"
+    if [ -n "${NEMOTRON_SUPER_API_KEY:-}" ]; then
+        echo "NEMOTRON_SUPER_API_KEY=\"$NEMOTRON_SUPER_API_KEY\"" >> "$REPO_DIR/.env"
     fi
-    if [ -n "$MINIMAX_API_KEY" ]; then
+    if [ -n "${MINIMAX_API_KEY:-}" ]; then
         echo "MINIMAX_API_KEY=\"$MINIMAX_API_KEY\"" >> "$REPO_DIR/.env"
     fi
-    if [ -n "$POOLSIDE_API_KEY" ]; then
-        echo "POOLSIDE_API_KEY=\"$POOLSIDE_API_KEY\"" >> "$REPO_DIR/.env"
+    if [ -n "${STEPFUN_API_KEY:-}" ]; then
+        echo "STEPFUN_API_KEY=\"$STEPFUN_API_KEY\"" >> "$REPO_DIR/.env"
     fi
     echo "LITELLM_MASTER_KEY=\"$LOCAL_KEY\"" >> "$REPO_DIR/.env"
     echo "LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=\"true\"" >> "$REPO_DIR/.env"
@@ -381,9 +485,14 @@ ENVEOF
 
 setup_system_user() {
     if id "$SERVICE_USER" &>/dev/null; then
-        if tui_yesno "User '$SERVICE_USER' already exists. Re-create it?"; then
-            sudo userdel -r "$SERVICE_USER" 2>/dev/null || true
-            sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+        if [ "$USE_TUI" = true ]; then
+            if tui_yesno "User '$SERVICE_USER' already exists. Re-create it?"; then
+                sudo userdel -r "$SERVICE_USER" 2>/dev/null || true
+                sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+            fi
+        else
+            # In --auto mode, just ensure user exists
+            echo "User $SERVICE_USER exists, keeping it."
         fi
     else
         sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
@@ -396,20 +505,18 @@ setup_venv() {
     sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR" 2>/dev/null || true
     sudo chmod 755 "$REPO_DIR" 2>/dev/null || true
 
+    # Determine which user to create venv as
     if sudo -u "$SERVICE_USER" test -w "$REPO_DIR" 2>/dev/null; then
         VENV_AS_USER="$SERVICE_USER"
     else
-        # In --auto mode, SUDO_USER may be empty; fall back to current user
+        # Fallback: find a suitable user
         VENV_AS_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
-        # If still root or empty, find first regular user or use current user
         if [ "$VENV_AS_USER" = "root" ] || [ -z "$VENV_AS_USER" ]; then
             VENV_AS_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}' /etc/passwd)
         fi
-        # Final fallback: use $USER if set and not root
         if [ -z "$VENV_AS_USER" ] || [ "$VENV_AS_USER" = "root" ]; then
             VENV_AS_USER="${USER:-$(id -un)}"
         fi
-        # Ultimate fallback: use the service user
         if [ -z "$VENV_AS_USER" ] || [ "$VENV_AS_USER" = "root" ]; then
             VENV_AS_USER="$SERVICE_USER"
         fi
@@ -420,10 +527,12 @@ setup_venv() {
         sudo -u "$VENV_AS_USER" python3 -m venv "$VENV_DIR"
     fi
 
+    # Ensure service user owns venv for systemd
     if [ "$VENV_AS_USER" != "$SERVICE_USER" ]; then
         sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR" 2>/dev/null || true
     fi
 
+    # Install packages
     sudo -u "$VENV_AS_USER" "$VENV_DIR/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
     sudo -u "$VENV_AS_USER" "$VENV_DIR/bin/pip" install 'litellm[proxy]' "fastapi<0.140.0" --quiet
 }
@@ -437,8 +546,18 @@ setup_nginx() {
         sudo sed -i 's|^listen 4000 default_server;|listen 0.0.0.0:4000 default_server;|g' "$NGINX_CONF"
     fi
 
+    # Add rate limiting zone to nginx.conf http block if not present
+    if ! grep -q "limit_req_zone.*myclaude" /etc/nginx/nginx.conf 2>/dev/null; then
+        sudo sed -i '/http {/a\    limit_req_zone $binary_remote_addr zone=myclaude:10m rate=16r/s;' /etc/nginx/nginx.conf
+    fi
+
+    # Add rate limiting to site config
+    if ! grep -q "limit_req zone=myclaude" "$NGINX_CONF" 2>/dev/null; then
+        sudo sed -i '/server {/a\    limit_req zone=myclaude burst=32 nodelay;\n    limit_req_status 503;' "$NGINX_CONF"
+    fi
+
     if [ -n "${NGINX_RATE:-}" ] && [ -n "${NGINX_BURST:-}" ]; then
-        sudo sed -i "s|rate=16r/s|rate=${NGINX_RATE}r/s|g" "$NGINX_CONF"
+        sudo sed -i "s|rate=16r/s|rate=${NGINX_RATE}r/s|g" /etc/nginx/nginx.conf
         sudo sed -i "s|burst=32|burst=${NGINX_BURST}|g" "$NGINX_CONF"
     fi
 
@@ -480,11 +599,21 @@ setup_claude_code() {
         return 0
     fi
 
-    if tui_yesno "Claude Code not found. Install now?"; then
-        if command -v npm &>/dev/null; then
-            npm install -g @anthropic-ai/claude-code
-        else
+    if [ "$USE_TUI" = true ]; then
+        if ! tui_yesno "Claude Code not found. Install now?"; then
+            return 0
+        fi
+    else
+        echo "Claude Code not found, installing..."
+    fi
+
+    if command -v npm &>/dev/null; then
+        npm install -g @anthropic-ai/claude-code
+    else
+        if [ "$USE_TUI" = true ]; then
             tui_msgbox "npm not found. Install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
+        else
+            echo "npm not found. Please install Node.js and run: npm install -g @anthropic-ai/claude-code"
         fi
     fi
 }
@@ -509,8 +638,12 @@ BASHEOF
 setup_wrapper() {
     cat > /tmp/myclaude_wrapper <<'WRAPEOF'
 #!/bin/bash
+# myclaude wrapper — launches Claude Code through the LiteLLM proxy
+# Installed to /usr/local/bin/myclaude by install.sh
+
 SERVICE_NAME="myclaude"
 
+# Check if service is active, start if not
 if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     echo "Starting MyClaude proxy..."
     sudo systemctl start "$SERVICE_NAME"
@@ -540,6 +673,8 @@ setup_lan_hosting() {
         elif command -v firewall-cmd &>/dev/null && sudo firewall-cmd --state 2>/dev/null | grep -q "running"; then
             sudo firewall-cmd --permanent --add-port=4000/tcp 2>/dev/null || true
             sudo firewall-cmd --reload 2>/dev/null || true
+        elif command -v iptables &>/dev/null; then
+            sudo iptables -A INPUT -p tcp --dport 4000 -j ACCEPT 2>/dev/null || true
         fi
         sudo systemctl reload nginx
     fi
@@ -608,15 +743,21 @@ main() {
 if [[ "${1:-}" == "--auto" ]]; then
     # Use environment variables
     NVIDIA_API_KEY="${NVIDIA_API_KEY:-}"
-    STEPFUN_API_KEY="${STEPFUN_API_KEY:-}"
+    NEMOTRON_SUPER_API_KEY="${NEMOTRON_SUPER_API_KEY:-}"
     MINIMAX_API_KEY="${MINIMAX_API_KEY:-}"
-    POOLSIDE_API_KEY="${POOLSIDE_API_KEY:-}"
+    STEPFUN_API_KEY="${STEPFUN_API_KEY:-}"
     ENABLE_LAN="${ENABLE_LAN:-false}"
+    NGINX_RATE="${NGINX_RATE:-16}"
+    NGINX_BURST="${NGINX_BURST:-32}"
+    REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-3600}"
 
     if [ -z "$NVIDIA_API_KEY" ]; then
         echo "ERROR: NVIDIA_API_KEY required for --auto mode"
         exit 1
     fi
+
+    # Set USE_TUI to false for auto mode
+    USE_TUI=false
 
     # Run without TUI
     install_system_packages
@@ -632,6 +773,7 @@ if [[ "${1:-}" == "--auto" ]]; then
     verify
 
     echo "Auto installation complete!"
+    echo "Run 'myclaude' to start Claude Code"
     exit 0
 fi
 

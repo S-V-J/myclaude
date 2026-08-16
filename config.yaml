@@ -37,11 +37,11 @@ model_list:
       model_info:
         mode: chat
 
-  # 🧠 2. SONNET 5 → StepFun Step-3.7-Flash
+  # 🧠 2. SONNET → Nemotron 3 Super
   - model_name: claude-sonnet-5
     litellm_params:
-      model: nvidia_nim/stepfun-ai/step-3.7-flash
-      api_key: os.environ/STEPFUN_API_KEY
+      model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+      api_key: os.environ/NEMOTRON_SUPER_API_KEY
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
@@ -49,6 +49,10 @@ model_list:
       tpm: 50000
       max_parallel_requests: 5
       drop_params: true
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 16384
       model_info:
         mode: chat
 
@@ -64,14 +68,18 @@ model_list:
       tpm: 50000
       max_parallel_requests: 5
       drop_params: true
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 8192
       model_info:
         mode: chat
 
-  # 🧠 4. HAIKU → Poolside Laguna XS
+  # 🧠 4. HAIKU → StepFun Step-3.7-Flash
   - model_name: claude-haiku-4-5
     litellm_params:
-      model: nvidia_nim/poolside/laguna-xs-2.1
-      api_key: os.environ/POOLSIDE_API_KEY
+      model: nvidia_nim/stepfun-ai/step-3.7-flash
+      api_key: os.environ/STEPFUN_API_KEY
       temperature: 1.0
       top_p: 0.95
       max_tokens: 8192

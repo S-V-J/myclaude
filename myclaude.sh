@@ -4,11 +4,12 @@
 
 SERVICE_NAME="myclaude"
 
-if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+# Check if service is active, start if not
+if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     echo "Starting MyClaude proxy..."
     sudo systemctl start "$SERVICE_NAME"
     sleep 3
-    if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+    if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         echo "Failed to start. Check: journalctl -u $SERVICE_NAME -n 20"
         exit 1
     fi

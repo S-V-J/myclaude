@@ -100,7 +100,7 @@ curl http://192.168.1.42:4000/
 - If you need internet access, put MyClaude behind a VPN (e.g., Tailscale, ZeroTier)
 - To disable LAN access later:
   ```bash
-  sudo rm /etc/nginx/sites-enabled/myclaude
+  sudo sed -i 's/listen 0.0.0.0:4000;/listen 4000;/' /etc/nginx/sites-enabled/myclaude
   sudo systemctl reload nginx
   ```
 

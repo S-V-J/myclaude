@@ -6,17 +6,31 @@
 
 MyClaude lets you run [Claude Code](https://docs.anthropic.com/en/docs/claude-code) using NVIDIA NIM models instead of Anthropic's API. It sets up a local LiteLLM proxy that translates Anthropic-format requests into OpenAI-compatible calls to NVIDIA's infrastructure — no code changes to Claude Code needed.
 
-## (Required) Current Status: 100% Functional
+## ⚡ Quick Start (One Command)
+
+```bash
+git clone https://github.com/S-V-J/myclaude.git && cd myclaude && bash install.sh
+```
+
+Or fully automated (requires `NVIDIA_API_KEY` env var):
+
+```bash
+git clone https://github.com/S-V-J/myclaude.git && cd myclaude && NVIDIA_API_KEY="your-key" bash install.sh --auto
+```
+
+## 📊 Current Status: 100% Functional
 
 All 4 models tested and working:
 
-| Menu Option | Model Name | NVIDIA NIM Backend | Status |
-|-------------|------------|-------------------|--------|
-| 1. Default (recommended) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | (Required) Works |
-| 2. Opus (1M context) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | (Required) Works |
-| 3. Sonnet | `claude-sonnet-5` | stepfun-ai/step-3.7-flash | (Required) Works |
-| 4. Sonnet 5 (1M context) | `claude-sonnet-5-1m` | minimaxai/minimax-m3 | (Required) Works |
-| 5. Haiku | `claude-haiku-4-5` | poolside/laguna-xs-2.1 | (Required) Works |
+| Menu Option | Model Name | NVIDIA NIM Backend | API Key |
+|-------------|------------|-------------------|---------|
+| 1. Default (recommended) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | `NVIDIA_API_KEY` |
+| 2. Opus (1M context) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | `NVIDIA_API_KEY` |
+| 3. Sonnet | `claude-sonnet-5` | nvidia/nemotron-3-super-120b-a12b | `NEMOTRON_SUPER_API_KEY` |
+| 4. Sonnet 5 (1M context) | `claude-sonnet-5-1m` | minimaxai/minimax-m3 | `MINIMAX_API_KEY` |
+| 5. Haiku | `claude-haiku-4-5` | stepfun-ai/step-3.7-flash | `STEPFUN_API_KEY` |
+
+> **Note:** Optional keys fall back to `NVIDIA_API_KEY` if not provided.
 
 ## ⚠️ Important: Bring Your Own NVIDIA API Keys
 
@@ -25,10 +39,10 @@ All 4 models tested and working:
 Get free API keys at: https://build.nvidia.com
 
 Each model backend may require a different API key:
-- **Nemotron 3 Ultra** (Opus) → NVIDIA_API_KEY
-- **StepFun Step-3.7-Flash** (Sonnet) → STEPFUN_API_KEY (optional, falls back to NVIDIA key)
-- **Minimax M3** (Sonnet 1M) → MINIMAX_API_KEY (optional, falls back to NVIDIA key)
-- **Poolside Laguna XS** (Haiku) → POOLSIDE_API_KEY (optional, falls back to NVIDIA key)
+- **Nemotron 3 Ultra** (Opus) → `NVIDIA_API_KEY`
+- **Nemotron 3 Super** (Sonnet) → `NEMOTRON_SUPER_API_KEY` (optional, falls back to NVIDIA key)
+- **Minimax M3** (Sonnet 1M) → `MINIMAX_API_KEY` (optional, falls back to NVIDIA key)
+- **StepFun Step-3.7-Flash** (Haiku) → `STEPFUN_API_KEY` (optional, falls back to NVIDIA key)
 
 ## How It Works
 
@@ -47,17 +61,17 @@ flowchart LR
     subgraph NVIDIA["NVIDIA NIM Cloud"]
         direction TB
         NM["Nemotron 3 Ultra\nnvidia/nemotron-3-ultra-550b-a55b"]
-        SM["StepFun Step-3.7-Flash\nstepfun-ai/step-3.7-flash"]
+        NS["Nemotron 3 Super\nnvidia/nemotron-3-super-120b-a12b"]
         MM["Minimax M3\nminimaxai/minimax-m3"]
-        PM["Poolside Laguna XS\npoolside/laguna-xs-2.1"]
+        SM["StepFun Step-3.7-Flash\nstepfun-ai/step-3.7-flash"]
     end
 
     CC -->|Anthropic Messages API\nhttp://localhost:4000| NX
     NX -->|HTTP/1.1 + WebSocket\nRate limited| LL
     LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
-    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| SM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NS
     LL -->|OpenAI Chat Completions\n+ NVIDIA headers| MM
-    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| PM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| SM
 
     classDef client fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
     classDef proxy fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
@@ -65,10 +79,8 @@ flowchart LR
 
     class CC client
     class NX,LL proxy
-    class NM,SM,MM,PM nvidia
+    class NM,NS,MM,SM nvidia
 ```
-
-<!-- -->
 
 ### Request Flow
 
@@ -78,8 +90,6 @@ flowchart LR
 | 2 | **nginx** → LiteLLM | HTTP/1.1 + WebSocket | Rate limited (16 req/s, burst 32), queues overflow |
 | 3 | **LiteLLM** → NVIDIA NIM | OpenAI Chat Completions | Translates format, selects model via router, adds auth |
 | 4 | **NVIDIA NIM** → Client | SSE Streaming | Model inference, streams tokens back through chain |
-
-<!-- -->
 
 ### Model Routing Map
 
@@ -94,24 +104,22 @@ flowchart TB
 
     subgraph NVIDIA["NVIDIA NIM Backends"]
         NEMO["Nemotron 3 Ultra\nReasoning · 1M context"]
-        STEP["StepFun Step-3.7-Flash\nReasoning · Fast"]
+        NEMOS["Nemotron 3 Super\nReasoning · Fast"]
         MINI["Minimax M3\n1M context"]
-        POOL["Poolside Laguna XS\nFast · Coding"]
+        STEP["StepFun Step-3.7-Flash\nReasoning · Fast"]
     end
 
     CO5 -->|NVIDIA_API_KEY| NEMO
-    CS5 -->|STEPFUN_API_KEY| STEP
+    CS5 -->|NEMOTRON_SUPER_API_KEY| NEMOS
     CS51M -->|MINIMAX_API_KEY| MINI
-    CH45 -->|POOLSIDE_API_KEY| POOL
+    CH45 -->|STEPFUN_API_KEY| STEP
 
     classDef claude fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
     classDef nvidia fill:#0f0f23,stroke:#76b900,stroke-width:2px,color:#fff
 
     class CO5,CS5,CS51M,CH45 claude
-    class NEMO,STEP,MINI,POOL nvidia
+    class NEMO,NEMOS,MINI,STEP nvidia
 ```
-
-<!-- -->
 
 ## Why This Approach
 
@@ -126,8 +134,8 @@ flowchart TB
 - **NVIDIA NIM API key(s)** — free tier available at [build.nvidia.com](https://build.nvidia.com)
 - **Linux** with systemd (Ubuntu, Debian, WSL2, etc.)
 - **Python 3.10+**
-- **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code`
-- **nginx** — `sudo apt install nginx`
+- **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code` (installer handles this)
+- **nginx** — `sudo apt install nginx` (installer handles this)
 - **sudo access** — for system user creation and service setup
 
 ## Installation
@@ -138,7 +146,7 @@ flowchart TB
 git clone https://github.com/S-V-J/myclaude.git && cd myclaude && bash install.sh
 ```
 
-The installer launches a **Terminal User Interface (TUI)** that guides you through complete configuration:
+The installer launches a **Terminal User Interface (TUI)** that guides you through complete configuration.
 
 #### TUI Configuration Flow
 
@@ -147,10 +155,10 @@ flowchart TB
     Start([Start Installer]) --> Step1
     
     subgraph Step1["Step 1: API Keys (up to 4)"]
-        K1["Key 1: Primary NVIDIA (Required)\nURL: integrate.api.nvidia.com/v1\nModels: nemotron-3-ultra, nemotron-4, llama-3.1-nemotron"]
-        K2["Key 2: StepFun (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: step-3.7-flash, step-3.7-mini"]
+        K1["Key 1: Primary NVIDIA (Required)\nURL: integrate.api.nvidia.com/v1\nModels: nemotron-3-ultra, nemotron-3-super, llama-3.1-nemotron"]
+        K2["Key 2: Nemotron Super (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: nemotron-3-super"]
         K3["Key 3: Minimax (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: minimax-m3, minimax-m1"]
-        K4["Key 4: Poolside (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: laguna-xs-2.1, laguna-xs-1.5"]
+        K4["Key 4: StepFun (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: step-3.7-flash, step-3.7-mini"]
         
         FetchModels[["Fetch Models from /v1/models"]]
         ValidateKeys[["Validate All Keys"]]
@@ -161,10 +169,10 @@ flowchart TB
     ValidateKeys --> Step2
     
     subgraph Step2["Step 2: Model Mapping"]
-        M1["claude-opus-5 (Default/Opus 1M)\nKey 1: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384"]
-        M2["claude-sonnet-5 (Sonnet)\nKey 2: step-3.7-flash\nParams: temp=1.0, top_p=0.95, max_tokens=16384"]
-        M3["claude-sonnet-5-1m (Sonnet 1M)\nKey 3: minimax-m3\nParams: temp=1.0, top_p=0.95, max_tokens=8192"]
-        M4["claude-haiku-4-5 (Haiku)\nKey 4: laguna-xs-2.1\nParams: temp=1.0, top_p=0.95, max_tokens=8192"]
+        M1["claude-opus-5 (Default/Opus 1M)\nKey 1: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
+        M2["claude-sonnet-5 (Sonnet)\nKey 2: nemotron-3-super-120b-a12b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
+        M3["claude-sonnet-5-1m (Sonnet 1M)\nKey 3: minimax-m3\nParams: temp=1.0, top_p=0.95, max_tokens=8192\nExtra: enable_thinking, reasoning_budget=8192"]
+        M4["claude-haiku-4-5 (Haiku)\nKey 4: step-3.7-flash\nParams: temp=1.0, top_p=0.95, max_tokens=8192"]
         
         Flexible["Flexible Mapping\n1 Key to 1 Model (dedicated)\n1 Key to 4 Models (shared)\n2 Keys to 4 Models (mixed)\nAny combination"]
         
@@ -217,24 +225,6 @@ flowchart TB
     class InstallBtn,BackBtn,SaveBtn button
 ```
 
-#### Raw Payload Example (Step 4)
-
-```json
-{
-  "model": "nvidia/nemotron-3-ultra-550b-a55b",
-  "messages": [{"role": "user", "content": "{{PROMPT}}"}],
-  "temperature": 1.0,
-  "top_p": 0.95,
-  "max_tokens": 16384,
-  "seed": 42,
-  "stream": false,
-  "extra_body": {
-    "chat_template_kwargs": {"enable_thinking": true},
-    "reasoning_budget": 16384
-  }
-}
-```
-
 #### TUI Features
 
 | Feature | Description |
@@ -247,17 +237,29 @@ flowchart TB
 | **Live Testing** | Test each model mapping before installation |
 | **Config Persistence** | Saves to `.env` and `config.yaml` automatically |
 
-### Option 2: Automated Install (Makefile)
+### Option 2: Automated Install (Non-interactive)
 
 ```bash
-git clone https://github.com/S-V-J/myclaude.git && cd myclaude && make install
+# With just the primary key (other keys fall back to it)
+NVIDIA_API_KEY="your-key" bash install.sh --auto
+
+# With all keys
+NVIDIA_API_KEY="..." NEMOTRON_SUPER_API_KEY="..." MINIMAX_API_KEY="..." STEPFUN_API_KEY="..." bash install.sh --auto
 ```
 
-This runs everything non-interactively (requires `NVIDIA_API_KEY` env var).
+### Option 3: Makefile (Convenience Commands)
 
-### Option 3: Windows + WSL
-
-Follow the WSL guide below, then run Option 1 or 2 inside WSL.
+```bash
+make install      # Runs install.sh (interactive)
+make install-auto # Runs install.sh --auto (needs NVIDIA_API_KEY env)
+make status       # Check service status
+make logs         # Tail service logs
+make restart      # Restart service
+make stop         # Stop service
+make start        # Start service
+make clean        # Remove everything
+make reinstall    # Clean + install
+```
 
 ### WSL — Step-by-Step Setup
 
@@ -299,9 +301,9 @@ Switch between Claude models. Your pick becomes the default for new sessions.
 
   1. Default (recommended)  : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
 ❯ 2. Opus (1M context) ✔    : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
-  3. Sonnet                 : proxy ai model stepfun-ai/step-3.7-flash
+  3. Sonnet                 : proxy ai model nvidia/nemotron-3-super-120b-a12b
   4. Sonnet 5 (1M context)  : proxy ai model minimaxai/minimax-m3
-  5. Haiku                  : proxy ai model poolside/laguna-xs-2.1
+  5. Haiku                  : proxy ai model stepfun-ai/step-3.7-flash
 ```
 
 Your selection persists across sessions via Claude Code's config.
@@ -345,9 +347,9 @@ myclaude-stop    # sudo systemctl stop myclaude
 NVIDIA_API_KEY="nvapi-..."
 
 # Optional — Separate keys for specific model providers (fallback to NVIDIA_API_KEY)
-STEPFUN_API_KEY="nvapi-..."
+NEMOTRON_SUPER_API_KEY="nvapi-..."
 MINIMAX_API_KEY="nvapi-..."
-POOLSIDE_API_KEY="nvapi-..."
+STEPFUN_API_KEY="nvapi-..."
 
 # Auto-generated — local proxy auth key (used by Claude Code)
 LITELLM_MASTER_KEY="sk-local-..."
@@ -364,12 +366,27 @@ Key settings (managed by TUI installer):
 - **Retries**: 5 attempts, 5s cooldown between retries
 - **Parallel limits**: 15 max concurrent (stays safely under NVIDIA's 20 RPM tier)
 - **Timeouts**: 3600s request timeout for long-running tasks
+- **Thinking mode**: Enabled for Nemotron models via `extra_body`
 
 ## Local Network Access
 
 Other devices on your LAN (phones, tablets, other PCs) can also use MyClaude. The TUI installer offers this option and handles nginx binding + firewall rules.
 
 Full guide: [LAN-ACCESS.md](LAN-ACCESS.md)
+
+### Quick LAN Setup
+
+```bash
+# Server: enable LAN access (or re-run installer with LAN option)
+sudo sed -i 's/listen 4000;/listen 0.0.0.0:4000;/' /etc/nginx/sites-enabled/myclaude
+sudo ufw allow 4000/tcp  # or firewall-cmd
+sudo systemctl reload nginx
+
+# Client (any device):
+export ANTHROPIC_BASE_URL="http://<server-lan-ip>:4000"
+export ANTHROPIC_API_KEY="sk-local-proxy-key"
+claude
+```
 
 ## Architecture Deep-Dive
 
