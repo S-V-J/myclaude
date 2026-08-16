@@ -16,10 +16,9 @@ router_settings:
   cooldown_time: 5
   routing_strategy: "least-busy"
   default_max_parallel_requests: 15
-  health_check_timeout: 36000  # ⭐ CRITICAL: Gives Nemotron up to 10 hours to respond to health checks
 
 model_list:
-  # 🧠 OPUS 5 → Direct to NVIDIA Nemotron 3 Ultra
+  # 🧠 1. DEFAULT / OPUS 5 (1M context) → Nemotron 3 Ultra
   - model_name: claude-opus-5
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
@@ -27,11 +26,10 @@ model_list:
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 20
-      tpm: 100000
-      max_parallel_requests: 15
+      rpm: 10
+      tpm: 50000
+      max_parallel_requests: 5
       drop_params: true
-      fallbacks: ["claude-sonnet-5"]
       extra_body:
         chat_template_kwargs:
           enable_thinking: true
@@ -39,7 +37,7 @@ model_list:
       model_info:
         mode: chat
 
-  # 🧠 SONNET 5 → Direct to StepFun Step-3.7-Flash
+  # 🧠 2. SONNET 5 → StepFun Step-3.7-Flash
   - model_name: claude-sonnet-5
     litellm_params:
       model: nvidia_nim/stepfun-ai/step-3.7-flash
@@ -47,9 +45,39 @@ model_list:
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 20
-      tpm: 100000
-      max_parallel_requests: 15
+      rpm: 10
+      tpm: 50000
+      max_parallel_requests: 5
+      drop_params: true
+      model_info:
+        mode: chat
+
+  # 🧠 3. SONNET 5 (1M context) → Minimax M3
+  - model_name: claude-sonnet-5-1m
+    litellm_params:
+      model: nvidia_nim/minimaxai/minimax-m3
+      api_key: os.environ/MINIMAX_API_KEY
+      temperature: 1.0
+      top_p: 0.95
+      max_tokens: 8192
+      rpm: 10
+      tpm: 50000
+      max_parallel_requests: 5
+      drop_params: true
+      model_info:
+        mode: chat
+
+  # 🧠 4. HAIKU → Poolside Laguna XS
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: nvidia_nim/poolside/laguna-xs-2.1
+      api_key: os.environ/POOLSIDE_API_KEY
+      temperature: 1.0
+      top_p: 0.95
+      max_tokens: 8192
+      rpm: 30
+      tpm: 50000
+      max_parallel_requests: 5
       drop_params: true
       model_info:
         mode: chat

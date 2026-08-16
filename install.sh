@@ -187,7 +187,12 @@ setup_venv() {
         VENV_AS_USER="$SERVICE_USER"
     else
         warn "Service user cannot write to $REPO_DIR (common on WSL). Falling back to current user for venv."
-        VENV_AS_USER="$(logname 2>/dev/null || echo $SUDO_USER || echo $USER)"
+        # Get current non-root user reliably
+        VENV_AS_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+        # Ensure it's not root
+        if [ "$VENV_AS_USER" = "root" ]; then
+            VENV_AS_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}' /etc/passwd)
+        fi
         # Ensure current user owns the directory for venv creation
         sudo chown -R "$VENV_AS_USER:$VENV_AS_USER" "$REPO_DIR" 2>/dev/null || true
     fi
