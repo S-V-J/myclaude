@@ -30,39 +30,78 @@ NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 VENV_DIR="$REPO_DIR/venv"
 SERVICE_USER="myclaude"
 
-# Check for whiptail/dialog
-if ! command -v whiptail &>/dev/null; then
+# Check for whiptail/dialog and TTY
+USE_TUI=false
+if command -v whiptail &>/dev/null && [ -t 0 ] && [ -t 1 ]; then
+    USE_TUI=true
+elif ! command -v whiptail &>/dev/null; then
     echo "Installing whiptail for TUI..."
-    sudo apt update && sudo apt install -y whiptail
+    sudo apt update && sudo apt install -y whiptail 2>/dev/null && USE_TUI=true
 fi
 
-# TUI helper functions
+# TUI helper functions (with fallback to read)
 tui_msgbox() {
-    whiptail --title "MyClaude Installer" --msgbox "$1" 12 70
+    if [ "$USE_TUI" = true ]; then
+        whiptail --title "MyClaude Installer" --msgbox "$1" 12 70
+    else
+        echo -e "\n=== $1 ===\n"
+        read -rp "Press Enter to continue..." _
+    fi
 }
 
 tui_inputbox() {
-    whiptail --title "MyClaude Installer" --inputbox "$1" 12 70 "$2" 3>&1 1>&2 2>&3
+    local prompt="$1"
+    local default="$2"
+    if [ "$USE_TUI" = true ]; then
+        whiptail --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
+    else
+        read -rp "$prompt [$default]: " input
+        echo "${input:-$default}"
+    fi
 }
 
 tui_passwordbox() {
-    whiptail --title "MyClaude Installer" --passwordbox "$1" 12 70 3>&1 1>&2 2>&3
+    local prompt="$1"
+    if [ "$USE_TUI" = true ]; then
+        whiptail --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
+    else
+        read -rsp "$prompt: " input
+        echo
+        echo "$input"
+    fi
 }
 
 tui_yesno() {
-    whiptail --title "MyClaude Installer" --yesno "$1" 12 70
+    local prompt="$1"
+    if [ "$USE_TUI" = true ]; then
+        whiptail --title "MyClaude Installer" --yesno "$prompt" 12 70
+    else
+        read -rp "$prompt (y/N): " ans
+        [[ "$ans" =~ ^[Yy]$ ]]
+    fi
 }
 
 tui_checklist() {
-    whiptail --title "MyClaude Installer" --checklist "$1" 20 70 10 "$2" 3>&1 1>&2 2>&3
-}
-
-tui_radiolist() {
-    whiptail --title "MyClaude Installer" --radiolist "$1" 20 70 10 "$2" 3>&1 1>&2 2>&3
+    local prompt="$1"
+    local items="$2"
+    if [ "$USE_TUI" = true ]; then
+        whiptail --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
+    else
+        echo "$prompt"
+        echo "$items" | tr ' ' '\n' | while read -r item; do
+            read -rp "Enable $item? (y/N): " ans
+            [[ "$ans" =~ ^[Yy]$ ]] && echo "$item"
+        done
+    fi
 }
 
 tui_gauge() {
-    whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
+    if [ "$USE_TUI" = true ]; then
+        whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
+    else
+        echo "$1"
+        cat  # consume stdin
+    fi
 }
 
 # ============================================================
