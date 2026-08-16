@@ -142,113 +142,95 @@ The installer launches a **Terminal User Interface (TUI)** that guides you throu
 
 #### TUI Configuration Flow
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                      MyClaude Installer                       │
-│               NVIDIA NIM Proxy for Claude Code               │
-└──────────────────────────────────────────────────────────────┘
-
-Step 1: API Keys (up to 4)
-──────────────────────────────────────────────────────────────
-┌─ Key 1 ──────────────────────────────────────────────────────┐
-│ Label:      [Primary NVIDIA           ] ▼  (required)       │
-│ API Key:    [nvapi-********************]                      │
-│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
-│ ─────────────────────────────────────────────────────────── │
-│ Models available for this key (fetch from /v1/models):      │
-│   ☐ nemotron-3-ultra-550b-a55b   ☐ nemotron-4-340b        │
-│   ☐ llama-3.1-nemotron-70b       ☐ ...                     │
-└──────────────────────────────────────────────────────────────┘
-┌─ Key 2 ──────────────────────────────────────────────────────┐
-│ Label:      [StepFun                  ] ▼  (optional)       │
-│ API Key:    [nvapi-********************]                      │
-│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
-│ Models:     ☐ step-3.7-flash      ☐ step-3.7-mini  ☐ ...   │
-└──────────────────────────────────────────────────────────────┘
-┌─ Key 3 ──────────────────────────────────────────────────────┐
-│ Label:      [Minimax                ] ▼  (optional)          │
-│ API Key:    [nvapi-********************]                      │
-│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
-│ Models:     ☐ minimax-m3          ☐ minimax-m1     ☐ ...     │
-└──────────────────────────────────────────────────────────────┘
-┌─ Key 4 ──────────────────────────────────────────────────────┐
-│ Label:      [Poolside               ] ▼  (optional)          │
-│ API Key:    [nvapi-********************]                      │
-│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
-│ Models:     ☐ laguna-xs-2.1       ☐ laguna-xs-1.5  ☐ ...     │
-└──────────────────────────────────────────────────────────────┘
-
-        [Fetch Models]   [Validate Keys]   [Next: Model Mapping →]
-```
-
-```
-Step 2: Model Mapping — Map Claude Models to NVIDIA Backends
-──────────────────────────────────────────────────────────────
-┌─ claude-opus-5 (Default / Opus 1M) ─────────────────────────┐
-│ Backend: [Key 1: nemotron-3-ultra-550b-a55b           ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=16384  thinking=on│
-│ Raw Payload Editor: [Edit ▼]                                 │
-└──────────────────────────────────────────────────────────────┘
-┌─ claude-sonnet-5 (Sonnet) ──────────────────────────────────┐
-│ Backend: [Key 2: step-3.7-flash                         ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=16384              │
-│ Raw Payload Editor: [Edit ▼]                                 │
-└──────────────────────────────────────────────────────────────┘
-┌─ claude-sonnet-5-1m (Sonnet 1M) ────────────────────────────┐
-│ Backend: [Key 3: minimax-m3                               ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=8192               │
-│ Raw Payload Editor: [Edit ▼]                                 │
-└──────────────────────────────────────────────────────────────┘
-┌─ claude-haiku-4-5 (Haiku) ──────────────────────────────────┐
-│ Backend: [Key 4: laguna-xs-2.1                            ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=8192               │
-│ Raw Payload Editor: [Edit ▼]                                 │
-└──────────────────────────────────────────────────────────────┘
-
-Flexible Mapping:
-  ├── 1 Key → 1 Model  (dedicated key per model)
-  ├── 1 Key → 4 Models (single key, multiple backends)
-  ├── 2 Keys → 4 Models (mixed)
-  └── Any combination you choose
-
-       [Validate All]   [Test Each Model]   [Next: Advanced →]
-```
-
-```
-Step 3: Advanced Options
-──────────────────────────────────────────────────────────────
-  ☐ Enable LAN Access (0.0.0.0:4000 + firewall rules)
-  ☐ Custom nginx rate limits (default: 16 req/s, burst 32)
-  ☐ Custom timeouts (default: 3600s)
-  ☐ Enable request/response logging
-  ☐ Auto-restart on failure (systemd)
-
-       [Install]   [Back]   [Save Config Only]
+```mermaid
+flowchart TB
+    Start([Start Installer]) --> Step1
+    
+    subgraph Step1["Step 1: API Keys (up to 4)"]
+        K1["Key 1: Primary NVIDIA\n✅ Required\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: nemotron-3-ultra, nemotron-4, llama-3.1-nemotron"]
+        K2["Key 2: StepFun\n⭕ Optional\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: step-3.7-flash, step-3.7-mini"]
+        K3["Key 3: Minimax\n⭕ Optional\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: minimax-m3, minimax-m1"]
+        K4["Key 4: Poolside\n⭕ Optional\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: laguna-xs-2.1, laguna-xs-1.5"]
+        
+        FetchModels[["Fetch Models from /v1/models"]]
+        ValidateKeys[["Validate All Keys"]]
+    end
+    
+    Step1 --> FetchModels
+    FetchModels --> ValidateKeys
+    ValidateKeys --> Step2
+    
+    subgraph Step2["Step 2: Model Mapping"]
+        M1["claude-opus-5 (Default/Opus 1M)\n→ Key 1: nemotron-3-ultra-550b-a55b\n⚙️ temp=1.0, top_p=0.95, max_tokens=16384, thinking=on"]
+        M2["claude-sonnet-5 (Sonnet)\n→ Key 2: step-3.7-flash\n⚙️ temp=1.0, top_p=0.95, max_tokens=16384"]
+        M3["claude-sonnet-5-1m (Sonnet 1M)\n→ Key 3: minimax-m3\n⚙️ temp=1.0, top_p=0.95, max_tokens=8192"]
+        M4["claude-haiku-4-5 (Haiku)\n→ Key 4: laguna-xs-2.1\n⚙️ temp=1.0, top_p=0.95, max_tokens=8192"]
+        
+        Flexible["Flexible Mapping:\n1 Key → 1 Model (dedicated)\n1 Key → 4 Models (shared)\n2 Keys → 4 Models (mixed)\nAny combination"]
+        
+        ValidateMappings[["Validate All Mappings"]]
+        TestModels[["Test Each Model"]]
+    end
+    
+    Step2 --> M1 & M2 & M3 & M4
+    M1 & M2 & M3 & M4 --> Flexible
+    Flexible --> ValidateMappings
+    ValidateMappings --> TestModels
+    TestModels --> Step3
+    
+    subgraph Step3["Step 3: Advanced Options"]
+        A1["☐ Enable LAN Access (0.0.0.0:4000)"]
+        A2["☐ Custom nginx rate limits\n(default: 16 req/s, burst 32)"]
+        A3["☐ Custom timeouts (default: 3600s)"]
+        A4["☐ Enable request/response logging"]
+        A5["☐ Auto-restart on failure (systemd)"]
+        
+        InstallBtn[["Install"]]
+        BackBtn[["Back"]]
+        SaveBtn[["Save Config Only"]]
+    end
+    
+    Step3 --> A1 & A2 & A3 & A4 & A5
+    A1 & A2 & A3 & A4 & A5 --> InstallBtn & BackBtn & SaveBtn
+    InstallBtn --> Step4
+    
+    subgraph Step4["Step 4: Raw Payload Validation (Optional)"]
+        Payload["Per-Model Raw Payload Editor:\n• Full JSON editor\n• Live validation\n• Test payload button\n• Reset to default"]
+        
+        Example["Example: claude-opus-5\n{\n  \"model\": \"nvidia/nemotron-3-ultra-550b-a55b\",\n  \"messages\": [{role: \"user\", content: \"{{PROMPT}}\"}],\n  \"temperature\": 1.0,\n  \"top_p\": 0.95,\n  \"max_tokens\": 16384,\n  \"extra_body\": {\n    \"chat_template_kwargs\": {\"enable_thinking\": true},\n    \"reasoning_budget\": 16384\n  }\n}"]
+        
+        TestPayload[["Test This Payload"]]
+        ValidateJSON[["Validate JSON"]]
+        ResetDefault[["Reset to Default"]]
+    end
+    
+    Step4 --> Payload
+    Payload --> Example
+    Example --> TestPayload & ValidateJSON & ResetDefault
+    TestPayload --> Done([Installation Complete])
+    ValidateJSON --> Done
+    ResetDefault --> Done
+    
+    classDef step fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
+    classDef action fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    classDef button fill:#0f0f23,stroke:#76b900,stroke-width:2px,color:#fff
+    
+    class Step1,Step2,Step3,Step4 step
+    class FetchModels,ValidateKeys,ValidateMappings,TestModels,TestPayload,ValidateJSON,ResetDefault action
+    class InstallBtn,BackBtn,SaveBtn button
 ```
 
-```
-Step 4: Raw Payload Validation (Optional but Recommended)
-──────────────────────────────────────────────────────────────
-For each model, you can edit the exact JSON payload sent to NVIDIA:
+#### TUI Features
 
-┌─ claude-opus-5 Raw Payload ─────────────────────────────────┐
-│ {                                                              │
-│   "model": "nvidia/nemotron-3-ultra-550b-a55b",              │
-│   "messages": [{"role": "user", "content": "{{PROMPT}}"}],   │
-│   "temperature": 1.0,                                         │
-│   "top_p": 0.95,                                              │
-│   "max_tokens": 16384,                                        │
-│   "seed": 42,                                                 │
-│   "stream": false,                                            │
-│   "extra_body": {                                             │
-│     "chat_template_kwargs": {"enable_thinking": true},       │
-│     "reasoning_budget": 16384                                 │
-│   }                                                           │
-│ }                                                             │
-│                                                               │
-│ [Test This Payload]  [Validate JSON]  [Reset to Default]    │
-└──────────────────────────────────────────────────────────────┘
-```
+| Feature | Description |
+|---------|-------------|
+| **Up to 4 API Keys** | Configure multiple NVIDIA keys for different model providers |
+| **Service Provider URL** | Select or enter custom base URLs (default: NVIDIA integrate API) |
+| **Model Discovery** | Click "Fetch Models" to auto-populate available models per key |
+| **Flexible Mapping** | Map any key→model combination (1:1, 1:many, many:1) |
+| **Raw Payload Editor** | Full JSON editor per model with live validation |
+| **Live Testing** | Test each model mapping before installation |
+| **Config Persistence** | Saves to `.env` and `config.yaml` automatically |
 
 #### TUI Features
 
