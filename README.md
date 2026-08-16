@@ -6,17 +6,17 @@
 
 MyClaude lets you run [Claude Code](https://docs.anthropic.com/en/docs/claude-code) using NVIDIA NIM models instead of Anthropic's API. It sets up a local LiteLLM proxy that translates Anthropic-format requests into OpenAI-compatible calls to NVIDIA's infrastructure — no code changes to Claude Code needed.
 
-## ✅ Current Status: 100% Functional
+## (Required) Current Status: 100% Functional
 
 All 4 models tested and working:
 
 | Menu Option | Model Name | NVIDIA NIM Backend | Status |
 |-------------|------------|-------------------|--------|
-| 1. Default (recommended) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | ✅ Works |
-| 2. Opus (1M context) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | ✅ Works |
-| 3. Sonnet | `claude-sonnet-5` | stepfun-ai/step-3.7-flash | ✅ Works |
-| 4. Sonnet 5 (1M context) | `claude-sonnet-5-1m` | minimaxai/minimax-m3 | ✅ Works |
-| 5. Haiku | `claude-haiku-4-5` | poolside/laguna-xs-2.1 | ✅ Works |
+| 1. Default (recommended) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | (Required) Works |
+| 2. Opus (1M context) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | (Required) Works |
+| 3. Sonnet | `claude-sonnet-5` | stepfun-ai/step-3.7-flash | (Required) Works |
+| 4. Sonnet 5 (1M context) | `claude-sonnet-5-1m` | minimaxai/minimax-m3 | (Required) Works |
+| 5. Haiku | `claude-haiku-4-5` | poolside/laguna-xs-2.1 | (Required) Works |
 
 ## ⚠️ Important: Bring Your Own NVIDIA API Keys
 
@@ -147,10 +147,10 @@ flowchart TB
     Start([Start Installer]) --> Step1
     
     subgraph Step1["Step 1: API Keys (up to 4)"]
-        K1["Key 1: Primary NVIDIA\n✅ Required\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: nemotron-3-ultra, nemotron-4, llama-3.1-nemotron"]
-        K2["Key 2: StepFun\n⭕ Optional\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: step-3.7-flash, step-3.7-mini"]
-        K3["Key 3: Minimax\n⭕ Optional\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: minimax-m3, minimax-m1"]
-        K4["Key 4: Poolside\n⭕ Optional\n🔗 https://integrate.api.nvidia.com/v1\n📦 Models: laguna-xs-2.1, laguna-xs-1.5"]
+        K1["Key 1: Primary NVIDIA (Required)\nURL: https://integrate.api.nvidia.com/v1\nModels: nemotron-3-ultra, nemotron-4, llama-3.1-nemotron"]
+        K2["Key 2: StepFun (Optional)\nURL: https://integrate.api.nvidia.com/v1\nModels: step-3.7-flash, step-3.7-mini"]
+        K3["Key 3: Minimax (Optional)\nURL: https://integrate.api.nvidia.com/v1\nModels: minimax-m3, minimax-m1"]
+        K4["Key 4: Poolside (Optional)\nURL: https://integrate.api.nvidia.com/v1\nModels: laguna-xs-2.1, laguna-xs-1.5"]
         
         FetchModels[["Fetch Models from /v1/models"]]
         ValidateKeys[["Validate All Keys"]]
@@ -161,10 +161,10 @@ flowchart TB
     ValidateKeys --> Step2
     
     subgraph Step2["Step 2: Model Mapping"]
-        M1["claude-opus-5 (Default/Opus 1M)\n→ Key 1: nemotron-3-ultra-550b-a55b\n⚙️ temp=1.0, top_p=0.95, max_tokens=16384, thinking=on"]
-        M2["claude-sonnet-5 (Sonnet)\n→ Key 2: step-3.7-flash\n⚙️ temp=1.0, top_p=0.95, max_tokens=16384"]
-        M3["claude-sonnet-5-1m (Sonnet 1M)\n→ Key 3: minimax-m3\n⚙️ temp=1.0, top_p=0.95, max_tokens=8192"]
-        M4["claude-haiku-4-5 (Haiku)\n→ Key 4: laguna-xs-2.1\n⚙️ temp=1.0, top_p=0.95, max_tokens=8192"]
+        M1["claude-opus-5 (Default/Opus 1M)\n→ Key 1: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384, thinking=on"]
+        M2["claude-sonnet-5 (Sonnet)\n→ Key 2: step-3.7-flash\nParams: temp=1.0, top_p=0.95, max_tokens=16384"]
+        M3["claude-sonnet-5-1m (Sonnet 1M)\n→ Key 3: minimax-m3\nParams: temp=1.0, top_p=0.95, max_tokens=8192"]
+        M4["claude-haiku-4-5 (Haiku)\n→ Key 4: laguna-xs-2.1\nParams: temp=1.0, top_p=0.95, max_tokens=8192"]
         
         Flexible["Flexible Mapping:\n1 Key → 1 Model (dedicated)\n1 Key → 4 Models (shared)\n2 Keys → 4 Models (mixed)\nAny combination"]
         
@@ -179,11 +179,11 @@ flowchart TB
     TestModels --> Step3
     
     subgraph Step3["Step 3: Advanced Options"]
-        A1["☐ Enable LAN Access (0.0.0.0:4000)"]
-        A2["☐ Custom nginx rate limits\n(default: 16 req/s, burst 32)"]
-        A3["☐ Custom timeouts (default: 3600s)"]
-        A4["☐ Enable request/response logging"]
-        A5["☐ Auto-restart on failure (systemd)"]
+        A1["[ ] Enable LAN Access (0.0.0.0:4000)"]
+        A2["[ ] Custom nginx rate limits\n(default: 16 req/s, burst 32)"]
+        A3["[ ] Custom timeouts (default: 3600s)"]
+        A4["[ ] Enable request/response logging"]
+        A5["[ ] Auto-restart on failure (systemd)"]
         
         InstallBtn[["Install"]]
         BackBtn[["Back"]]
@@ -195,7 +195,7 @@ flowchart TB
     InstallBtn --> Step4
     
     subgraph Step4["Step 4: Raw Payload Validation (Optional)"]
-        Payload["Per-Model Raw Payload Editor:\n• Full JSON editor\n• Live validation\n• Test payload button\n• Reset to default"]
+        Payload["Per-Model Raw Payload Editor:\n- Full JSON editor\n- Live validation\n- Test payload button\n- Reset to default"]
         
         Example["Example: claude-opus-5\n{\n  \"model\": \"nvidia/nemotron-3-ultra-550b-a55b\",\n  \"messages\": [{role: \"user\", content: \"{{PROMPT}}\"}],\n  \"temperature\": 1.0,\n  \"top_p\": 0.95,\n  \"max_tokens\": 16384,\n  \"extra_body\": {\n    \"chat_template_kwargs\": {\"enable_thinking\": true},\n    \"reasoning_budget\": 16384\n  }\n}"]
         
@@ -219,18 +219,6 @@ flowchart TB
     class FetchModels,ValidateKeys,ValidateMappings,TestModels,TestPayload,ValidateJSON,ResetDefault action
     class InstallBtn,BackBtn,SaveBtn button
 ```
-
-#### TUI Features
-
-| Feature | Description |
-|---------|-------------|
-| **Up to 4 API Keys** | Configure multiple NVIDIA keys for different model providers |
-| **Service Provider URL** | Select or enter custom base URLs (default: NVIDIA integrate API) |
-| **Model Discovery** | Click "Fetch Models" to auto-populate available models per key |
-| **Flexible Mapping** | Map any key→model combination (1:1, 1:many, many:1) |
-| **Raw Payload Editor** | Full JSON editor per model with live validation |
-| **Live Testing** | Test each model mapping before installation |
-| **Config Persistence** | Saves to `.env` and `config.yaml` automatically |
 
 #### TUI Features
 
