@@ -34,17 +34,17 @@ Each model backend may require a different API key:
 
 ```mermaid
 flowchart LR
-    subgraph Client["🖥️ Client Machine"]
+    subgraph Client["Client Machine"]
         CC[("Claude Code\n(Anthropic SDK)")]
     end
 
-    subgraph Proxy["🔀 Local Proxy Stack (localhost)"]
+    subgraph Proxy["Local Proxy Stack (localhost)"]
         direction TB
-        NX["nginx :4000\n🟢 Rate Limiter\n16 req/s · burst 32"]
-        LL["LiteLLM :4001\n🟣 Proxy & Router\nAnthropic→OpenAI translate"]
+        NX["nginx :4000\nRate Limiter\n16 req/s · burst 32"]
+        LL["LiteLLM :4001\nProxy & Router\nAnthropic to OpenAI"]
     end
 
-    subgraph NVIDIA["☁️ NVIDIA NIM Cloud"]
+    subgraph NVIDIA["NVIDIA NIM Cloud"]
         direction TB
         NM["Nemotron 3 Ultra\nnvidia/nemotron-3-ultra-550b-a55b"]
         SM["StepFun Step-3.7-Flash\nstepfun-ai/step-3.7-flash"]
@@ -52,17 +52,16 @@ flowchart LR
         PM["Poolside Laguna XS\npoolside/laguna-xs-2.1"]
     end
 
-    CC <-- "Anthropic Messages API\nhttp://localhost:4000" --> NX
-    NX <-- "HTTP/1.1 + WebSocket\nRate limited" --> LL
-    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> NM
-    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> SM
-    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> MM
-    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> PM
+    CC -->|Anthropic Messages API\nhttp://localhost:4000| NX
+    NX -->|HTTP/1.1 + WebSocket\nRate limited| LL
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| SM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| MM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| PM
 
     classDef client fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
     classDef proxy fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
     classDef nvidia fill:#0f0f23,stroke:#76b900,stroke-width:2px,color:#fff
-    classDef model fill:#1a1a2e,stroke:#76b900,stroke-width:1px,color:#fff
 
     class CC client
     class NX,LL proxy
@@ -90,10 +89,10 @@ flowchart TB
     end
 
     subgraph NVIDIA["NVIDIA NIM Backends"]
-        NEMO["Nemotron 3 Ultra\n🟢 Reasoning · 1M ctx"]
-        STEP["StepFun Step-3.7-Flash\n🟡 Reasoning · Fast"]
-        MINI["Minimax M3\n🔵 1M context"]
-        POOL["Poolside Laguna XS\n🟣 Fast · Coding"]
+        NEMO["Nemotron 3 Ultra\nReasoning · 1M context"]
+        STEP["StepFun Step-3.7-Flash\nReasoning · Fast"]
+        MINI["Minimax M3\n1M context"]
+        POOL["Poolside Laguna XS\nFast · Coding"]
     end
 
     CO5 -->|NVIDIA_API_KEY| NEMO
