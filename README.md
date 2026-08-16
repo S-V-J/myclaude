@@ -143,87 +143,87 @@ The installer launches a **Terminal User Interface (TUI)** that guides you throu
 #### TUI Configuration Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    MyClaude Installer                        │
-│              NVIDIA NIM Proxy for Claude Code               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      MyClaude Installer                       │
+│               NVIDIA NIM Proxy for Claude Code               │
+└──────────────────────────────────────────────────────────────┘
 
 Step 1: API Keys (up to 4)
 ──────────────────────────────────────────────────────────────
-┌─ Key 1 ────────────────────────────────────────────────────┐
-│ Label: [Primary NVIDIA          ] ▼  (required)            │
-│ API Key: [nvapi-********************]                      │
-│ Base URL: [https://integrate.api.nvidia.com/v1      ] ▼    │
-│ ─────────────────────────────────────────────────────────  │
-│ Models available for this key (fetch from /v1/models):     │
-│ ☐ nemotron-3-ultra-550b-a55b    ☐ nemotron-4-340b        │
-│ ☐ llama-3.1-nemotron-70b       ☐ ...                      │
-└────────────────────────────────────────────────────────────┘
-┌─ Key 2 ────────────────────────────────────────────────────┐
-│ Label: [StepFun                ] ▼  (optional)             │
-│ API Key: [nvapi-********************]                      │
-│ Base URL: [https://integrate.api.nvidia.com/v1      ] ▼    │
-│ Models: ☐ step-3.7-flash      ☐ step-3.7-mini    ☐ ...    │
-└────────────────────────────────────────────────────────────┘
-┌─ Key 3 ────────────────────────────────────────────────────┐
-│ Label: [Minimax                ] ▼  (optional)             │
-│ API Key: [nvapi-********************]                      │
-│ Base URL: [https://integrate.api.nvidia.com/v1      ] ▼    │
-│ Models: ☐ minimax-m3          ☐ minimax-m1      ☐ ...      │
-└────────────────────────────────────────────────────────────┘
-┌─ Key 4 ────────────────────────────────────────────────────┐
-│ Label: [Poolside               ] ▼  (optional)             │
-│ API Key: [nvapi-********************]                      │
-│ Base URL: [https://integrate.api.nvidia.com/v1      ] ▼    │
-│ Models: ☐ laguna-xs-2.1       ☐ laguna-xs-1.5   ☐ ...      │
-└────────────────────────────────────────────────────────────┘
+┌─ Key 1 ──────────────────────────────────────────────────────┐
+│ Label:      [Primary NVIDIA           ] ▼  (required)       │
+│ API Key:    [nvapi-********************]                      │
+│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
+│ ─────────────────────────────────────────────────────────── │
+│ Models available for this key (fetch from /v1/models):      │
+│   ☐ nemotron-3-ultra-550b-a55b   ☐ nemotron-4-340b        │
+│   ☐ llama-3.1-nemotron-70b       ☐ ...                     │
+└──────────────────────────────────────────────────────────────┘
+┌─ Key 2 ──────────────────────────────────────────────────────┐
+│ Label:      [StepFun                  ] ▼  (optional)       │
+│ API Key:    [nvapi-********************]                      │
+│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
+│ Models:     ☐ step-3.7-flash      ☐ step-3.7-mini  ☐ ...   │
+└──────────────────────────────────────────────────────────────┘
+┌─ Key 3 ──────────────────────────────────────────────────────┐
+│ Label:      [Minimax                ] ▼  (optional)          │
+│ API Key:    [nvapi-********************]                      │
+│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
+│ Models:     ☐ minimax-m3          ☐ minimax-m1     ☐ ...     │
+└──────────────────────────────────────────────────────────────┘
+┌─ Key 4 ──────────────────────────────────────────────────────┐
+│ Label:      [Poolside               ] ▼  (optional)          │
+│ API Key:    [nvapi-********************]                      │
+│ Base URL:   [https://integrate.api.nvidia.com/v1 ] ▼        │
+│ Models:     ☐ laguna-xs-2.1       ☐ laguna-xs-1.5  ☐ ...     │
+└──────────────────────────────────────────────────────────────┘
 
-[Fetch Models]  [Validate Keys]  [Next: Model Mapping →]
+        [Fetch Models]   [Validate Keys]   [Next: Model Mapping →]
 ```
 
 ```
 Step 2: Model Mapping — Map Claude Models to NVIDIA Backends
 ──────────────────────────────────────────────────────────────
-┌─ claude-opus-5 (Default/Opus 1M) ──────────────────────────┐
-│ Backend: [Key 1: nemotron-3-ultra-550b-a55b          ] ▼   │
+┌─ claude-opus-5 (Default / Opus 1M) ─────────────────────────┐
+│ Backend: [Key 1: nemotron-3-ultra-550b-a55b           ] ▼   │
 │ Params:  temp=1.0  top_p=0.95  max_tokens=16384  thinking=on│
-│ Raw Payload Editor: [Edit ▼]                                │
+│ Raw Payload Editor: [Edit ▼]                                 │
 └──────────────────────────────────────────────────────────────┘
-┌─ claude-sonnet-5 (Sonnet) ─────────────────────────────────┐
-│ Backend: [Key 2: step-3.7-flash                       ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=16384             │
-│ Raw Payload Editor: [Edit ▼]                                │
+┌─ claude-sonnet-5 (Sonnet) ──────────────────────────────────┐
+│ Backend: [Key 2: step-3.7-flash                         ] ▼   │
+│ Params:  temp=1.0  top_p=0.95  max_tokens=16384              │
+│ Raw Payload Editor: [Edit ▼]                                 │
 └──────────────────────────────────────────────────────────────┘
-┌─ claude-sonnet-5-1m (Sonnet 1M) ───────────────────────────┐
-│ Backend: [Key 3: minimax-m3                             ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=8192              │
-│ Raw Payload Editor: [Edit ▼]                                │
+┌─ claude-sonnet-5-1m (Sonnet 1M) ────────────────────────────┐
+│ Backend: [Key 3: minimax-m3                               ] ▼   │
+│ Params:  temp=1.0  top_p=0.95  max_tokens=8192               │
+│ Raw Payload Editor: [Edit ▼]                                 │
 └──────────────────────────────────────────────────────────────┘
-┌─ claude-haiku-4-5 (Haiku) ─────────────────────────────────┐
-│ Backend: [Key 4: laguna-xs-2.1                          ] ▼   │
-│ Params:  temp=1.0  top_p=0.95  max_tokens=8192              │
-│ Raw Payload Editor: [Edit ▼]                                │
+┌─ claude-haiku-4-5 (Haiku) ──────────────────────────────────┐
+│ Backend: [Key 4: laguna-xs-2.1                            ] ▼   │
+│ Params:  temp=1.0  top_p=0.95  max_tokens=8192               │
+│ Raw Payload Editor: [Edit ▼]                                 │
 └──────────────────────────────────────────────────────────────┘
 
 Flexible Mapping:
-├── 1 Key → 1 Model  (dedicated key per model)
-├── 1 Key → 4 Models (single key, multiple backends)
-├── 2 Keys → 4 Models (mixed)
-└── Any combination you choose
+  ├── 1 Key → 1 Model  (dedicated key per model)
+  ├── 1 Key → 4 Models (single key, multiple backends)
+  ├── 2 Keys → 4 Models (mixed)
+  └── Any combination you choose
 
-[Validate All Mappings]  [Test Each Model]  [Next: Advanced →]
+       [Validate All]   [Test Each Model]   [Next: Advanced →]
 ```
 
 ```
 Step 3: Advanced Options
 ──────────────────────────────────────────────────────────────
-☐ Enable LAN Access (0.0.0.0:4000 + firewall rules)
-☐ Custom nginx rate limits (default: 16 req/s, burst 32)
-☐ Custom timeouts (default: 3600s)
-☐ Enable request/response logging
-☐ Auto-restart on failure (systemd)
+  ☐ Enable LAN Access (0.0.0.0:4000 + firewall rules)
+  ☐ Custom nginx rate limits (default: 16 req/s, burst 32)
+  ☐ Custom timeouts (default: 3600s)
+  ☐ Enable request/response logging
+  ☐ Auto-restart on failure (systemd)
 
-[Install]  [Back]  [Save Config Only]
+       [Install]   [Back]   [Save Config Only]
 ```
 
 ```
@@ -231,22 +231,22 @@ Step 4: Raw Payload Validation (Optional but Recommended)
 ──────────────────────────────────────────────────────────────
 For each model, you can edit the exact JSON payload sent to NVIDIA:
 
-┌─ claude-opus-5 Raw Payload ────────────────────────────────┐
-│ {                                                            │
-│   "model": "nvidia/nemotron-3-ultra-550b-a55b",            │
-│   "messages": [{"role": "user", "content": "{{PROMPT}}"}], │
-│   "temperature": 1.0,                                        │
-│   "top_p": 0.95,                                             │
-│   "max_tokens": 16384,                                       │
-│   "seed": 42,                                                │
-│   "stream": false,                                           │
-│   "extra_body": {                                            │
-│     "chat_template_kwargs": {"enable_thinking": true},      │
-│     "reasoning_budget": 16384                                │
-│   }                                                          │
-│ }                                                            │
-│                                                              │
-│ [Test This Payload]  [Validate JSON]  [Reset to Default]   │
+┌─ claude-opus-5 Raw Payload ─────────────────────────────────┐
+│ {                                                              │
+│   "model": "nvidia/nemotron-3-ultra-550b-a55b",              │
+│   "messages": [{"role": "user", "content": "{{PROMPT}}"}],   │
+│   "temperature": 1.0,                                         │
+│   "top_p": 0.95,                                              │
+│   "max_tokens": 16384,                                        │
+│   "seed": 42,                                                 │
+│   "stream": false,                                            │
+│   "extra_body": {                                             │
+│     "chat_template_kwargs": {"enable_thinking": true},       │
+│     "reasoning_budget": 16384                                 │
+│   }                                                           │
+│ }                                                             │
+│                                                               │
+│ [Test This Payload]  [Validate JSON]  [Reset to Default]    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
