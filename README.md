@@ -32,36 +32,81 @@ Each model backend may require a different API key:
 
 ## How It Works
 
-```
-              :4000              :4001
-                  ┌──────────┐       ┌──────────┐
-                  │ Claude   │──────▶│  nginx   │──────▶│ LiteLLM │
-                  │  Code    │◀──────│ (rate    │◀──────│ (proxy) │
-                  │(Anthropic)│       │  limit)  │       └────┬─────┘
-                  └──────────┘       └──────────┘            │
-                                                             ▼
-                                                ┌──────────────────────┐
-                                                │   NVIDIA NIM API     │
-                                                │  ┌────────────────┐  │
-                                                │  │ claude-opus-5  │  │
-                                                │  │→ Nemotron Ultra│  │
-                                                │  ├────────────────┤  │
-                                                │  │claude-sonnet-5 │  │
-                                                │  │→ Step-3.7 Flash│  │
-                                                │  ├────────────────┤  │
-                                                │  │claude-sonnet-5-1m│ │
-                                                │  │→ Minimax M3    │  │
-                                                │  ├────────────────┤  │
-                                                │  │claude-haiku-4-5│  │
-                                                │  │→ Poolside Laguna│ │
-                                                │  └────────────────┘  │
-                                                └──────────────────────┘
-```
+```mermaid
+flowchart LR
+    subgraph Client["🖥️ Client Machine"]
+        CC[("Claude Code\n(Anthropic SDK)")]
+    end
 
-1. **Claude Code** sends Anthropic-format requests to `http://localhost:4000`
-2. **nginx** reverse-proxies with rate limiting (burst-aware queuing) to LiteLLM
-3. **LiteLLM** translates Anthropic messages → OpenAI format and routes to the right NVIDIA model
-4. **NVIDIA NIM** executes the model inference and streams results back
+    subgraph Proxy["🔀 Local Proxy Stack (localhost)"]
+        direction TB
+        NX["nginx :4000\n🟢 Rate Limiter\n16 req/s · burst 32"]
+        LL["LiteLLM :4001\n🟣 Proxy & Router\nAnthropic→OpenAI translate"]
+    end
+
+    subgraph NVIDIA["☁️ NVIDIA NIM Cloud"]
+        direction TB
+        NM["Nemotron 3 Ultra\nnvidia/nemotron-3-ultra-550b-a55b"]
+        SM["StepFun Step-3.7-Flash\nstepfun-ai/step-3.7-flash"]
+        MM["Minimax M3\nminimaxai/minimax-m3"]
+        PM["Poolside Laguna XS\npoolside/laguna-xs-2.1"]
+    end
+
+    CC <-- "Anthropic Messages API\nhttp://localhost:4000" --> NX
+    NX <-- "HTTP/1.1 + WebSocket\nRate limited" --> LL
+    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> NM
+    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> SM
+    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> MM
+    LL <-- "OpenAI Chat Completions\n+ NVIDIA headers" --> PM
+
+    classDef client fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
+    classDef proxy fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    classDef nvidia fill:#0f0f23,stroke:#76b900,stroke-width:2px,color:#fff
+    classDef model fill:#1a1a2e,stroke:#76b900,stroke-width:1px,color:#fff
+
+    class CC client
+    class NX,LL proxy
+    class NM,SM,MM,PM nvidia
+</mermaid>
+
+### Request Flow
+
+| Step | Component | Protocol | Details |
+|------|-----------|----------|---------|
+| 1 | **Claude Code** → nginx | HTTP/1.1 + SSE | Anthropic Messages format, `http://localhost:4000` |
+| 2 | **nginx** → LiteLLM | HTTP/1.1 + WebSocket | Rate limited (16 req/s, burst 32), queues overflow |
+| 3 | **LiteLLM** → NVIDIA NIM | OpenAI Chat Completions | Translates format, selects model via router, adds auth |
+| 4 | **NVIDIA NIM** → Client | SSE Streaming | Model inference, streams tokens back through chain |
+
+### Model Routing Map
+
+```mermaid
+flowchart TB
+    subgraph Claude["Claude Code Models"]
+        CO5["claude-opus-5\n(Default / Opus 1M)"]
+        CS5["claude-sonnet-5\n(Sonnet)"]
+        CS51M["claude-sonnet-5-1m\n(Sonnet 1M)"]
+        CH45["claude-haiku-4-5\n(Haiku)"]
+    end
+
+    subgraph NVIDIA["NVIDIA NIM Backends"]
+        NEMO["Nemotron 3 Ultra\n🟢 Reasoning · 1M ctx"]
+        STEP["StepFun Step-3.7-Flash\n🟡 Reasoning · Fast"]
+        MINI["Minimax M3\n🔵 1M context"]
+        POOL["Poolside Laguna XS\n🟣 Fast · Coding"]
+    end
+
+    CO5 -->|NVIDIA_API_KEY| NEMO
+    CS5 -->|STEPFUN_API_KEY| STEP
+    CS51M -->|MINIMAX_API_KEY| MINI
+    CH45 -->|POOLSIDE_API_KEY| POOL
+
+    classDef claude fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
+    classDef nvidia fill:#0f0f23,stroke:#76b900,stroke-width:2px,color:#fff
+
+    class CO5,CS5,CS51M,CH45 claude
+    class NEMO,STEP,MINI,POOL nvidia
+```
 
 ## Why This Approach
 
