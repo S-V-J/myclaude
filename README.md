@@ -32,8 +32,7 @@ Each model backend may require a different API key:
 
 ## How It Works
 
-<div class="mermaid">
-
+```mermaid
 flowchart LR
     subgraph Client["Client Machine"]
         CC[("Claude Code\n(Anthropic SDK)")]
@@ -67,8 +66,7 @@ flowchart LR
     class CC client
     class NX,LL proxy
     class NM,SM,MM,PM nvidia
-
-</div>
+```
 
 ### Request Flow
 
@@ -81,8 +79,7 @@ flowchart LR
 
 ### Model Routing Map
 
-<div class="mermaid">
-
+```mermaid
 flowchart TB
     subgraph Claude["Claude Code Models"]
         CO5["claude-opus-5\n(Default / Opus 1M)"]
@@ -108,8 +105,7 @@ flowchart TB
 
     class CO5,CS5,CS51M,CH45 claude
     class NEMO,STEP,MINI,POOL nvidia
-
-</div>
+```
 
 ## Why This Approach
 
