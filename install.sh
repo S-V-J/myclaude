@@ -399,9 +399,19 @@ setup_venv() {
     if sudo -u "$SERVICE_USER" test -w "$REPO_DIR" 2>/dev/null; then
         VENV_AS_USER="$SERVICE_USER"
     else
+        # In --auto mode, SUDO_USER may be empty; fall back to current user
         VENV_AS_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
-        if [ "$VENV_AS_USER" = "root" ]; then
+        # If still root or empty, find first regular user or use current user
+        if [ "$VENV_AS_USER" = "root" ] || [ -z "$VENV_AS_USER" ]; then
             VENV_AS_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}' /etc/passwd)
+        fi
+        # Final fallback: use $USER if set and not root
+        if [ -z "$VENV_AS_USER" ] || [ "$VENV_AS_USER" = "root" ]; then
+            VENV_AS_USER="${USER:-$(id -un)}"
+        fi
+        # Ultimate fallback: use the service user
+        if [ -z "$VENV_AS_USER" ] || [ "$VENV_AS_USER" = "root" ]; then
+            VENV_AS_USER="$SERVICE_USER"
         fi
         sudo chown -R "$VENV_AS_USER:$VENV_AS_USER" "$REPO_DIR" 2>/dev/null || true
     fi
