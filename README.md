@@ -68,6 +68,8 @@ flowchart LR
     class NM,SM,MM,PM nvidia
 </mermaid>
 
+---
+
 ### Request Flow
 
 | Step | Component | Protocol | Details |
@@ -76,6 +78,8 @@ flowchart LR
 | 2 | **nginx** → LiteLLM | HTTP/1.1 + WebSocket | Rate limited (16 req/s, burst 32), queues overflow |
 | 3 | **LiteLLM** → NVIDIA NIM | OpenAI Chat Completions | Translates format, selects model via router, adds auth |
 | 4 | **NVIDIA NIM** → Client | SSE Streaming | Model inference, streams tokens back through chain |
+
+---
 
 ### Model Routing Map
 
@@ -106,6 +110,8 @@ flowchart TB
     class CO5,CS5,CS51M,CH45 claude
     class NEMO,STEP,MINI,POOL nvidia
 ```
+
+---
 
 ## Why This Approach
 
