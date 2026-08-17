@@ -118,6 +118,7 @@ term_inputbox() {
 term_passwordbox() {
     local prompt="$1"
     echo -e "\n$prompt" | sed 's/\\n/\n/g'
+    # Read password - use stdin directly
     read -rsp "> " input
     echo
     echo "$input"
@@ -155,6 +156,12 @@ term_gauge() {
     echo "$msg"
     cat  # consume stdin
 }
+
+# Logging functions
+log_info() { echo -e "\n[INFO] $*"; }
+log_success() { echo -e "\n[SUCCESS] $*"; }
+log_warn() { echo -e "\n[WARN] $*"; }
+log_error() { echo -e "\n[ERROR] $*"; }
 
 # Unified functions that work in both TUI and terminal mode
 ui_msgbox() {
@@ -449,11 +456,13 @@ step3_advanced() {
     local options
     options=$(ui_checklist "Select advanced options:" \
         "lan" "Enable LAN Access (0.0.0.0:4000 + firewall)" OFF \
+        "tls" "Enable TLS/SSL (HTTPS on port 4443)" OFF \
         "logging" "Enable request/response logging" OFF \
         "custom_limits" "Custom nginx rate limits" OFF \
         "custom_timeouts" "Custom timeouts" OFF)
 
     ENABLE_LAN=false
+    ENABLE_TLS=false
     ENABLE_LOGGING=false
     CUSTOM_LIMITS=false
     CUSTOM_TIMEOUTS=false
@@ -462,6 +471,7 @@ step3_advanced() {
         opt=$(echo "$opt" | tr -d '"')
         case "$opt" in
             lan) ENABLE_LAN=true ;;
+            tls) ENABLE_TLS=true ;;
             logging) ENABLE_LOGGING=true ;;
             custom_limits) CUSTOM_LIMITS=true ;;
             custom_timeouts) CUSTOM_TIMEOUTS=true ;;
@@ -480,6 +490,15 @@ step3_advanced() {
         REQUEST_TIMEOUT=$(ui_inputbox "Request timeout (seconds):" "3600")
     else
         REQUEST_TIMEOUT=3600
+    fi
+
+    # TLS domain input
+    if [ "$ENABLE_TLS" = true ]; then
+        TLS_DOMAIN=$(ui_inputbox "Domain for TLS cert (e.g., myclaude.local):" "localhost")
+        TLS_ENABLE_HTTP=$(ui_yesno "Also keep HTTP on port 4000? (Recommended for local access)" && echo "true" || echo "false")
+    else
+        TLS_DOMAIN="localhost"
+        TLS_ENABLE_HTTP="true"
     fi
 
     return 0
@@ -540,8 +559,14 @@ run_installation() {
         echo 50; echo "# Configuring nginx..."; sleep 1
         setup_nginx
 
+        echo 55; echo "# Setting up log rotation..."; sleep 1
+        setup_logrotate
+
         echo 60; echo "# Setting up systemd service..."; sleep 1
         setup_systemd
+
+        echo 65; echo "# Setting up TLS/SSL..."; sleep 1
+        setup_tls
 
         echo 70; echo "# Installing Claude Code..."; sleep 1
         setup_claude_code
@@ -549,13 +574,13 @@ run_installation() {
         echo 80; echo "# Setting up aliases..."; sleep 1
         setup_bashrc
 
-        echo 90; echo "# Installing wrapper..."; sleep 1
+        echo 85; echo "# Installing wrapper..."; sleep 1
         setup_wrapper
 
-        echo 95; echo "# Configuring LAN access..."; sleep 1
+        echo 90; echo "# Configuring LAN access..."; sleep 1
         setup_lan_hosting
 
-        echo 100; echo "# Verification..."; sleep 1
+        echo 95; echo "# Verification..."; sleep 1
         verify
     } | ui_gauge "Installing MyClaude..."
 }
@@ -651,11 +676,8 @@ setup_nginx() {
         sudo sed -i '/http {/a\    limit_req_zone $binary_remote_addr zone=myclaude:10m rate=16r/s;' /etc/nginx/nginx.conf
     fi
 
-    # Add rate limiting to site config
-    if ! grep -q "limit_req zone=myclaude" "$NGINX_CONF" 2>/dev/null; then
-        sudo sed -i '/server {/a\    limit_req zone=myclaude burst=32 nodelay;\n    limit_req_status 503;' "$NGINX_CONF"
-    fi
-
+    # Rate limiting is now explicit in nginx-myclaude.conf template
+    # Only update rate/burst values if custom limits provided
     if [ -n "${NGINX_RATE:-}" ] && [ -n "${NGINX_BURST:-}" ]; then
         sudo sed -i "s|rate=16r/s|rate=${NGINX_RATE}r/s|g" /etc/nginx/nginx.conf
         sudo sed -i "s|burst=32|burst=${NGINX_BURST}|g" "$NGINX_CONF"
@@ -666,6 +688,17 @@ setup_nginx() {
     else
         ui_msgbox "Nginx config test failed. Check $NGINX_CONF"
         exit 1
+    fi
+}
+
+setup_logrotate() {
+    if [ -f "$REPO_DIR/logrotate-myclaude" ]; then
+        sudo cp "$REPO_DIR/logrotate-myclaude" /etc/logrotate.d/myclaude
+        # Update paths in logrotate config to match actual repo directory
+        sudo sed -i "s|/home/ML/myclaude|$REPO_DIR|g" /etc/logrotate.d/myclaude
+        # Ensure log file exists with correct permissions
+        sudo touch "$REPO_DIR/litellm.log"
+        sudo chown "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR/litellm.log"
     fi
 }
 
@@ -742,6 +775,7 @@ setup_wrapper() {
 # Installed to /usr/local/bin/myclaude by install.sh
 
 SERVICE_NAME="myclaude"
+NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 
 # Check if service is active, start if not
 if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
@@ -754,10 +788,17 @@ if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
     fi
 fi
 
-export ANTHROPIC_BASE_URL="http://localhost:4000"
-export ANTHROPIC_API_KEY="sk-local-proxy-key"
+# Detect if TLS is enabled (check nginx config for port 4443)
+if grep -q "listen 4443" "$NGINX_CONF" 2>/dev/null; then
+    export ANTHROPIC_BASE_URL="https://localhost:4443"
+    export ANTHROPIC_API_KEY="sk-local-proxy-key"
+    echo "Launching Claude Code via MyClaude proxy (HTTPS)..."
+else
+    export ANTHROPIC_BASE_URL="http://localhost:4000"
+    export ANTHROPIC_API_KEY="sk-local-proxy-key"
+    echo "Launching Claude Code via MyClaude proxy (HTTP)..."
+fi
 
-echo "Launching Claude Code via MyClaude proxy..."
 exec claude "$@"
 WRAPEOF
 
@@ -766,21 +807,41 @@ WRAPEOF
     rm -f /tmp/myclaude_wrapper
 }
 
+setup_tls() {
+    if [ "$ENABLE_TLS" = true ]; then
+        log_info "Setting up TLS/SSL..."
+        # Use the setup-tls.sh script
+        if [ -f "$REPO_DIR/setup-tls.sh" ]; then
+            bash "$REPO_DIR/setup-tls.sh" generate "$TLS_DOMAIN" "$TLS_ENABLE_HTTP"
+        else
+            ui_msgbox "WARNING: setup-tls.sh not found. TLS not configured."
+        fi
+    fi
+}
+
 setup_lan_hosting() {
     if [ "$ENABLE_LAN" = true ]; then
-        if command -v ufw &>/dev/null && sudo ufw status 2>/dev/null | grep -q "Status: active"; then
-            sudo ufw allow 4000/tcp comment "MyClaude proxy"
-        elif command -v firewall-cmd &>/dev/null && sudo firewall-cmd --state 2>/dev/null | grep -q "running"; then
-            sudo firewall-cmd --permanent --add-port=4000/tcp 2>/dev/null || true
-            sudo firewall-cmd --reload 2>/dev/null || true
-        elif command -v iptables &>/dev/null; then
-            sudo iptables -A INPUT -p tcp --dport 4000 -j ACCEPT 2>/dev/null || true
+        local ports="4000"
+        if [ "$ENABLE_TLS" = true ]; then
+            ports="4000 4443"
         fi
+
+        for port in $ports; do
+            if command -v ufw &>/dev/null && sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+                sudo ufw allow "$port"/tcp comment "MyClaude proxy"
+            elif command -v firewall-cmd &>/dev/null && sudo firewall-cmd --state 2>/dev/null | grep -q "running"; then
+                sudo firewall-cmd --permanent --add-port="$port"/tcp 2>/dev/null || true
+                sudo firewall-cmd --reload 2>/dev/null || true
+            elif command -v iptables &>/dev/null; then
+                sudo iptables -A INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null || true
+            fi
+        done
         sudo systemctl reload nginx
     fi
 }
 
 verify() {
+    # Test HTTP
     if ! ss -tlnp 2>/dev/null | grep -q ':4000 '; then
         ui_msgbox "ERROR: Nginx NOT on port 4000"
         exit 1
@@ -799,6 +860,23 @@ verify() {
 
     if ! echo "$test_result" | grep -q "choices\|content"; then
         ui_msgbox "WARNING: Proxy test returned unexpected result:\n$test_result"
+    fi
+
+    # Test HTTPS if TLS enabled
+    if [ "$ENABLE_TLS" = true ]; then
+        if ! ss -tlnp 2>/dev/null | grep -q ':4443 '; then
+            ui_msgbox "WARNING: HTTPS NOT on port 4443"
+        else
+            test_result=$(curl -k -s --max-time 15 \
+                -H "Authorization: Bearer sk-local-proxy-key" \
+                -H "Content-Type: application/json" \
+                -X POST https://localhost:4443/v1/chat/completions \
+                -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
+
+            if ! echo "$test_result" | grep -q "choices\|content"; then
+                ui_msgbox "WARNING: HTTPS proxy test returned unexpected result:\n$test_result"
+            fi
+        fi
     fi
 }
 
@@ -847,6 +925,9 @@ if [[ "${1:-}" == "--auto" ]]; then
     MINIMAX_API_KEY="${MINIMAX_API_KEY:-}"
     STEPFUN_API_KEY="${STEPFUN_API_KEY:-}"
     ENABLE_LAN="${ENABLE_LAN:-false}"
+    ENABLE_TLS="${ENABLE_TLS:-false}"
+    TLS_DOMAIN="${TLS_DOMAIN:-localhost}"
+    TLS_ENABLE_HTTP="${TLS_ENABLE_HTTP:-true}"
     NGINX_RATE="${NGINX_RATE:-16}"
     NGINX_BURST="${NGINX_BURST:-32}"
     REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-3600}"
@@ -865,7 +946,9 @@ if [[ "${1:-}" == "--auto" ]]; then
     setup_system_user
     setup_venv
     setup_nginx
+    setup_logrotate
     setup_systemd
+    setup_tls
     setup_claude_code
     setup_bashrc
     setup_wrapper

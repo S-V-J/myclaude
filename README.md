@@ -18,17 +18,22 @@ Or fully automated (requires `NVIDIA_API_KEY` env var):
 git clone https://github.com/S-V-J/myclaude.git && cd myclaude && NVIDIA_API_KEY="your-key" bash install.sh --auto
 ```
 
-## 📊 Current Status: 100% Functional
+With TLS/SSL for LAN/production:
+
+```bash
+ENABLE_TLS=true TLS_DOMAIN=myclaude.local NVIDIA_API_KEY="your-key" bash install.sh --auto
+```
+
+## 📊 Current Status: 100% Production-Ready
 
 All 4 models tested and working:
 
-| Menu Option | Model Name | NVIDIA NIM Backend | API Key |
-|-------------|------------|-------------------|---------|
-| 1. Default (recommended) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | `NVIDIA_API_KEY` |
-| 2. Opus (1M context) | `claude-opus-5` | nvidia/nemotron-3-ultra-550b-a55b | `NVIDIA_API_KEY` |
-| 3. Sonnet | `claude-sonnet-5` | nvidia/nemotron-3-super-120b-a12b | `NEMOTRON_SUPER_API_KEY` |
-| 4. Sonnet 5 (1M context) | `claude-sonnet-5-1m` | minimaxai/minimax-m3 | `MINIMAX_API_KEY` |
-| 5. Haiku | `claude-haiku-4-5` | stepfun-ai/step-3.7-flash | `STEPFUN_API_KEY` |
+| Claude Code Model | NVIDIA NIM Backend | API Key |
+|-------------------|-------------------|---------|
+| `claude-opus-5` (Default / Opus 1M) | `nvidia/nemotron-3-ultra-550b-a55b` | `NVIDIA_API_KEY` |
+| `claude-sonnet-5` (Sonnet) | `nvidia/nemotron-3-super-120b-a12b` | `NEMOTRON_SUPER_API_KEY` |
+| `claude-sonnet-5-1m` (Sonnet 1M) | `minimaxai/minimax-m3` | `MINIMAX_API_KEY` |
+| `claude-haiku-4-5` (Haiku) | `stepfun-ai/step-3.7-flash` | `STEPFUN_API_KEY` |
 
 > **Note:** Optional keys fall back to `NVIDIA_API_KEY` if not provided.
 
@@ -54,7 +59,7 @@ flowchart LR
 
     subgraph Proxy["Local Proxy Stack (localhost)"]
         direction TB
-        NX["nginx :4000\nRate Limiter\n16 req/s · burst 32"]
+        NX["nginx :4000 / :4443\nRate Limiter\n16 req/s · burst 32\nTLS Termination"]
         LL["LiteLLM :4001\nProxy & Router\nAnthropic to OpenAI"]
     end
 
@@ -66,7 +71,7 @@ flowchart LR
         SM["StepFun Step-3.7-Flash\nstepfun-ai/step-3.7-flash"]
     end
 
-    CC -->|Anthropic Messages API\nhttp://localhost:4000| NX
+    CC -->|Anthropic Messages API\nhttp://localhost:4000\nor https://localhost:4443| NX
     NX -->|HTTP/1.1 + WebSocket\nRate limited| LL
     LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
     LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NS
@@ -86,8 +91,8 @@ flowchart LR
 
 | Step | Component | Protocol | Details |
 |------|-----------|----------|---------|
-| 1 | **Claude Code** → nginx | HTTP/1.1 + SSE | Anthropic Messages format, `http://localhost:4000` |
-| 2 | **nginx** → LiteLLM | HTTP/1.1 + WebSocket | Rate limited (16 req/s, burst 32), queues overflow |
+| 1 | **Claude Code** → nginx | HTTP/1.1 + SSE | Anthropic Messages format, `http://localhost:4000` or `https://localhost:4443` |
+| 2 | **nginx** → LiteLLM | HTTP/1.1 + WebSocket | Rate limited (16 req/s, burst 32), queues overflow, TLS termination |
 | 3 | **LiteLLM** → NVIDIA NIM | OpenAI Chat Completions | Translates format, selects model via router, adds auth |
 | 4 | **NVIDIA NIM** → Client | SSE Streaming | Model inference, streams tokens back through chain |
 
@@ -128,6 +133,7 @@ flowchart TB
 - **Rate limit protection** — nginx queues burst traffic; LiteLLM retries with backoff
 - **Model routing** — different Claude models map to different NVIDIA backends automatically
 - **Local-first** — everything runs on your machine, keys never leave your control
+- **Production-ready** — TLS, log rotation, health checks, dedicated service user
 
 ## Prerequisites
 
@@ -187,11 +193,11 @@ flowchart TB
     TestModels --> Step3
     
     subgraph Step3["Step 3: Advanced Options"]
-        A1["[ ] Enable LAN Access (0.0.0.0:4000)"]
-        A2["[ ] Custom nginx rate limits (16 req/s, burst 32)"]
-        A3["[ ] Custom timeouts (default: 3600s)"]
-        A4["[ ] Enable request/response logging"]
-        A5["[ ] Auto-restart on failure (systemd)"]
+        A1["[ ] Enable LAN Access (0.0.0.0:4000 + firewall)"]
+        A2["[ ] Enable TLS/SSL (HTTPS on port 4443)"]
+        A3["[ ] Enable request/response logging"]
+        A4["[ ] Custom nginx rate limits (16 req/s, burst 32)"]
+        A5["[ ] Custom timeouts (default: 3600s)"]
         
         InstallBtn[["Install"]]
         BackBtn[["Back"]]
@@ -236,6 +242,7 @@ flowchart TB
 | **Raw Payload Editor** | Full JSON editor per model with live validation |
 | **Live Testing** | Test each model mapping before installation |
 | **Config Persistence** | Saves to `.env` and `config.yaml` automatically |
+| **TLS/SSL Option** | Generate self-signed certs with SAN for LAN IPs |
 
 ### Option 2: Automated Install (Non-interactive)
 
@@ -245,20 +252,40 @@ NVIDIA_API_KEY="your-key" bash install.sh --auto
 
 # With all keys
 NVIDIA_API_KEY="..." NEMOTRON_SUPER_API_KEY="..." MINIMAX_API_KEY="..." STEPFUN_API_KEY="..." bash install.sh --auto
+
+# With TLS/SSL for LAN/production
+ENABLE_TLS=true TLS_DOMAIN=myclaude.local TLS_ENABLE_HTTP=true NVIDIA_API_KEY="..." bash install.sh --auto
 ```
+
+**Auto-mode Environment Variables:**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NVIDIA_API_KEY` | *required* | Primary NVIDIA NIM API key |
+| `NEMOTRON_SUPER_API_KEY` | (fallback) | Nemotron 3 Super key |
+| `MINIMAX_API_KEY` | (fallback) | Minimax M3 key |
+| `STEPFUN_API_KEY` | (fallback) | StepFun Step-3.7-Flash key |
+| `ENABLE_LAN` | `false` | Bind nginx to 0.0.0.0:4000 |
+| `ENABLE_TLS` | `false` | Enable HTTPS on port 4443 |
+| `TLS_DOMAIN` | `localhost` | Domain for TLS certificate |
+| `TLS_ENABLE_HTTP` | `true` | Keep HTTP on port 4000 |
+| `NGINX_RATE` | `16` | Rate limit (req/s) |
+| `NGINX_BURST` | `32` | Burst limit |
+| `REQUEST_TIMEOUT` | `3600` | Request timeout (seconds) |
 
 ### Option 3: Makefile (Convenience Commands)
 
 ```bash
-make install      # Runs install.sh (interactive)
-make install-auto # Runs install.sh --auto (needs NVIDIA_API_KEY env)
-make status       # Check service status
-make logs         # Tail service logs
-make restart      # Restart service
-make stop         # Stop service
-make start        # Start service
-make clean        # Remove everything
-make reinstall    # Clean + install
+make install       # Runs install.sh (interactive)
+make install-auto  # Runs install.sh --auto (needs NVIDIA_API_KEY env)
+make status        # Check service status
+make logs          # Tail service logs
+make restart       # Restart service
+make stop          # Stop service
+make start         # Start service
+make test          # Test all 4 models + health endpoints
+make clean         # Remove everything (service, user, venv, config)
+make reinstall     # Clean + install
+make help          # Show this help
 ```
 
 ### WSL — Step-by-Step Setup
@@ -290,6 +317,8 @@ myclaude              # launch Claude Code with NVIDIA models
 myclaude --help       # pass arguments through to Claude Code
 myclaude "prompt"     # one-shot prompt
 ```
+
+The `myclaude` wrapper **auto-detects TLS** and uses HTTPS if enabled.
 
 ### Model Selection in Claude Code
 
@@ -334,11 +363,14 @@ myclaude-stop    # sudo systemctl stop myclaude
 |------|---------|
 | `.env` | Your API keys (gitignored, created by installer) |
 | `.env.example` | Template showing required variables |
-| `config.yaml` | LiteLLM model routing, retry settings, rate limits |
-| `nginx-myclaude.conf` | nginx reverse proxy, rate limiting, timeouts |
+| `config.yaml` | LiteLLM model routing, retry settings, rate limits, health check |
+| `nginx-myclaude.conf` | nginx reverse proxy, rate limiting, timeouts, TLS config |
 | `litellm.service.template` | systemd unit template (paths filled at install) |
-| `myclaude.sh` | `/usr/local/bin/myclaude` wrapper script |
+| `myclaude.sh` | `/usr/local/bin/myclaude` wrapper script (auto-detects TLS) |
 | `install.sh` | TUI installer |
+| `setup-tls.sh` | TLS/SSL certificate generator |
+| `test-models.sh` | Model testing script |
+| `logrotate-myclaude` | Log rotation config |
 
 ### .env Variables
 
@@ -367,6 +399,43 @@ Key settings (managed by TUI installer):
 - **Parallel limits**: 15 max concurrent (stays safely under NVIDIA's 20 RPM tier)
 - **Timeouts**: 3600s request timeout for long-running tasks
 - **Thinking mode**: Enabled for Nemotron models via `extra_body`
+- **Health check**: Enabled at `/health` on port 4001
+
+### TLS/SSL (`setup-tls.sh`)
+
+```bash
+# Enable HTTPS (generates self-signed cert with SAN for all LAN IPs)
+sudo bash setup-tls.sh generate myclaude.local true
+
+# Disable HTTPS (restore HTTP-only)
+sudo bash setup-tls.sh disable
+
+# Show connection info
+bash setup-tls.sh info
+```
+
+**Features:**
+- Self-signed certificates with Subject Alternative Names for all local IPs
+- Modern TLS 1.2/1.3 with secure cipher suites
+- HTTP→HTTPS redirect option (port 4000 → 4443)
+- Works with `myclaude` wrapper (auto-detects TLS)
+- Client cert trust instructions included
+
+### Log Rotation
+
+Installed automatically to `/etc/logrotate.d/myclaude`:
+- **Daily rotation**, 14-day retention
+- **Compression** with delaycompress
+- **Post-rotate reload** of myclaude service and nginx
+- Covers both `litellm.log` and nginx access/error logs
+
+### Health Endpoints
+
+| Endpoint | Port | Purpose |
+|----------|------|---------|
+| `GET /health` | 4000 (nginx) | nginx health check |
+| `GET /health` | 4001 (LiteLLM) | LiteLLM health check |
+| `GET /health` | 4443 (nginx HTTPS) | TLS health check |
 
 ## Local Network Access
 
@@ -374,7 +443,7 @@ Other devices on your LAN (phones, tablets, other PCs) can also use MyClaude. Th
 
 Full guide: [LAN-ACCESS.md](LAN-ACCESS.md)
 
-### Quick LAN Setup
+### Quick LAN Setup (HTTP)
 
 ```bash
 # Server: enable LAN access (or re-run installer with LAN option)
@@ -388,12 +457,31 @@ export ANTHROPIC_API_KEY="sk-local-proxy-key"
 claude
 ```
 
+### Quick LAN Setup (HTTPS)
+
+```bash
+# Server: enable TLS + LAN (or re-run installer with both options)
+sudo bash setup-tls.sh generate myserver.local true
+sudo ufw allow 4000/tcp
+sudo ufw allow 4443/tcp
+sudo systemctl reload nginx
+
+# Client (any device) - use -k for self-signed cert:
+export ANTHROPIC_BASE_URL="https://<server-lan-ip>:4443"
+export ANTHROPIC_API_KEY="sk-local-proxy-key"
+claude
+
+# Or trust cert system-wide:
+sudo cp /etc/ssl/myclaude/myclaude.crt /usr/local/share/ca-certificates/myclaude.crt
+sudo update-ca-certificates
+```
+
 ## Architecture Deep-Dive
 
 ### Request Flow
 
 1. **Claude Code** formats a request as an Anthropic Messages API call
-2. **nginx** receives it on `:4000`, applies rate limiting (16 req/s sustained, 32 burst), and forwards to LiteLLM
+2. **nginx** receives it on `:4000` (HTTP) or `:4443` (HTTPS), applies rate limiting (16 req/s sustained, 32 burst), terminates TLS, and forwards to LiteLLM
 3. **LiteLLM** receives the Anthropic-format request, translates headers and body to OpenAI format, selects the target model via the complexity router, and forwards to NVIDIA NIM
 4. **NVIDIA NIM** runs inference and streams SSE chunks back through the chain to Claude Code
 
@@ -402,13 +490,40 @@ claude
 - **Burst absorption**: Claude Code can fire rapid parallel tool calls; nginx queues them smoothly
 - **503 on overload**: Returns clean errors instead of crashing LiteLLM under load
 - **WebSocket upgrade**: Proper streaming support for long completions
-- **Future-proof**: Easy to add TLS, auth, or multi-tenant routing at the nginx layer
+- **TLS termination**: Offloads encryption from LiteLLM
+- **Future-proof**: Easy to add auth, multi-tenant routing at the nginx layer
 
 ### Why a dedicated system user?
 
-- Security isolation — the proxy runs with minimal privileges
+- Security isolation — the proxy runs with minimal privileges (`myclaude` user, no shell, no home)
 - Clean ownership — venv, logs, and config all owned by one user
 - No shell access — `nologin` shell prevents interactive logins
+
+## Testing
+
+```bash
+# Test all 4 models + health endpoints
+make test
+# or
+bash test-models.sh
+```
+
+Output:
+```
+[INFO] Testing MyClaude proxy at http://localhost:4000
+[INFO] Testing 4 models...
+
+Testing nginx health endpoint... [PASS] nginx /health OK
+Testing LiteLLM health endpoint... [PASS] LiteLLM /health OK
+
+Testing claude-opus-5 (nvidia/nemotron-3-ultra-550b-a55b)... [PASS] Response: Hello!
+Testing claude-sonnet-5 (nvidia/nemotron-3-super-120b-a12b)... [PASS] Response: Hi!
+Testing claude-sonnet-5-1m (minimaxai/minimax-m3)... [PASS] Response: Hey!
+Testing claude-haiku-4-5 (stepfun-ai/step-3.7-flash)... [PASS] Response: Hello!
+
+[INFO] Results: 4 passed, 0 failed
+[PASS] All models working!
+```
 
 ## Troubleshooting
 
@@ -422,6 +537,7 @@ claude
 | Slow responses | Check NVIDIA NIM status; try reducing `max_tokens` in config.yaml |
 | Model returns 429 | API key rate limited — wait or use different key |
 | TUI not displaying | Ensure terminal supports ANSI colors (most do) |
+| TLS cert errors | Use `curl -k` or trust cert: `sudo cp /etc/ssl/myclaude/myclaude.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates` |
 
 ## Development / Contributing
 
@@ -430,10 +546,35 @@ claude
 make test
 
 # Lint shell scripts
-shellcheck install.sh myclaude.sh
+shellcheck install.sh myclaude.sh setup-tls.sh test-models.sh
 
 # Validate config.yaml
 yamllint config.yaml
+
+# Check nginx config
+sudo nginx -t
+```
+
+## File Structure
+
+```
+myclaude/
+├── install.sh              # TUI installer (main entry)
+├── myclaude.sh             # Wrapper script → /usr/local/bin/myclaude
+├── config.yaml             # LiteLLM model routing config
+├── nginx-myclaude.conf     # nginx reverse proxy config
+├── litellm.service.template # systemd unit template
+├── .env.example            # Environment template
+├── .gitignore              # Git ignore rules
+├── setup-tls.sh            # TLS certificate generator
+├── test-models.sh          # Model testing script
+├── logrotate-myclaude      # Log rotation config
+├── Makefile                # Convenience commands
+├── LAN-ACCESS.md           # LAN access guide
+├── DEV-NOTES.md            # Developer notes
+├── README.md               # This file
+├── venv/                   # Python virtual environment (created at install)
+└── .env                    # Your API keys (created at install, gitignored)
 ```
 
 ## Sponsor

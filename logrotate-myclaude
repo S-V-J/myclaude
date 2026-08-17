@@ -1,0 +1,32 @@
+# MyClaude logrotate configuration
+# Install: sudo cp logrotate-myclaude /etc/logrotate.d/myclaude
+
+# LiteLLM application logs
+/home/ML/myclaude/litellm.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 myclaude myclaude
+    sharedscripts
+    postrotate
+        systemctl reload myclaude > /dev/null 2>&1 || true
+    endscript
+}
+
+# Nginx access/error logs for myclaude
+/var/log/nginx/myclaude*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 www-data www-data
+    sharedscripts
+    postrotate
+        [ -f /var/run/nginx.pid ] && kill -USR1 $(cat /var/run/nginx.pid) 2>/dev/null || true
+    endscript
+}

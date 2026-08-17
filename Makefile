@@ -36,18 +36,9 @@ start:
 	@sleep 2
 	@make status
 
-# Test all models
+# Test all models (uses dedicated test script)
 test:
-	@echo "Testing all 4 models..."
-	@for model in claude-opus-5 claude-sonnet-5 claude-sonnet-5-1m claude-haiku-4-5; do \
-		echo -n "$$model: "; \
-		curl -s --max-time 30 \
-			-H "Authorization: Bearer sk-local-proxy-key" \
-			-H "Content-Type: application/json" \
-			-X POST http://localhost:4000/v1/chat/completions \
-			-d "{\"model\":\"$$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello\"}],\"max_tokens\":50}" 2>&1 | \
-		python3 -c "import sys, json; d=json.load(sys.stdin); c=d.get('content') or d.get('choices', [{}])[0].get('message', {}).get('content'); print(c[0]['text'][:50] if c and isinstance(c, list) and len(c)>0 else 'empty')" 2>/dev/null; \
-	done
+	@bash test-models.sh
 
 # Full cleanup (removes service, nginx config, user, venv, wrapper)
 clean:

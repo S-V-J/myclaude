@@ -4,6 +4,8 @@ litellm_settings:
   num_retries: 3
   request_timeout: 3600
   master_key: os.environ/LITELLM_MASTER_KEY
+  # Health check endpoint
+  health_check_path: "/health"
 
 general_settings:
   global_max_parallel_requests: 15
@@ -16,6 +18,12 @@ router_settings:
   cooldown_time: 5
   routing_strategy: "least-busy"
   default_max_parallel_requests: 15
+
+# Health check endpoint for LiteLLM
+health_check:
+  enabled: true
+  path: "/health"
+  port: 4001
 
 model_list:
   # 🧠 1. DEFAULT / OPUS 5 (1M context) → Nemotron 3 Ultra
