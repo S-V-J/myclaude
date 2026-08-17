@@ -76,106 +76,208 @@ check_tui() {
     fi
 }
 
+# Parse command line arguments
+FORCE_TERMINAL=false
+for arg in "$@"; do
+    case "$arg" in
+        --terminal) FORCE_TERMINAL=true ;;
+        --auto) ;;
+        *) ;;
+    esac
+done
+
 TUI_TOOL=$(check_tui)
 USE_TUI=false
-if [ "$TUI_TOOL" != "none" ] && has_tty; then
+if [ "$FORCE_TERMINAL" = true ]; then
+    USE_TUI=false
+    echo "=== Running in terminal mode (--terminal) ==="
+elif [ "$TUI_TOOL" != "none" ] && has_tty; then
     USE_TUI=true
 fi
 
 # ============================================================
-# TUI helper functions (with fallback to read)
+# Terminal/TUI helper functions
 # ============================================================
-tui_msgbox() {
+# For terminal mode, we print clean prompts and read input
+term_msgbox() {
+    local msg="$1"
+    echo -e "\n============================================"
+    echo "$msg" | sed 's/\\n/\n/g'
+    echo "============================================"
+    read -rp "Press Enter to continue..." _
+}
+
+term_inputbox() {
+    local prompt="$1"
+    local default="$2"
+    echo -e "\n$prompt" | sed 's/\\n/\n/g'
+    read -rp "[$default]: " input
+    echo "${input:-$default}"
+}
+
+term_passwordbox() {
+    local prompt="$1"
+    echo -e "\n$prompt" | sed 's/\\n/\n/g'
+    read -rsp "> " input
+    echo
+    echo "$input"
+}
+
+term_yesno() {
+    local prompt="$1"
+    echo -e "\n$prompt" | sed 's/\\n/\n/g'
+    while true; do
+        read -rp "(y/N): " ans
+        case "$ans" in
+            [Yy]*) return 0 ;;
+            [Nn]*|"") return 1 ;;
+            *) echo "Please answer y or n." ;;
+        esac
+    done
+}
+
+term_checklist() {
+    local prompt="$1"
+    local items="$2"
+    echo -e "\n$prompt" | sed 's/\\n/\n/g'
+    local selected=""
+    for item in $items; do
+        item=$(echo "$item" | tr -d '"')
+        if term_yesno "Enable $item?"; then
+            selected="$selected $item"
+        fi
+    done
+    echo "$selected"
+}
+
+term_gauge() {
+    local msg="$1"
+    echo "$msg"
+    cat  # consume stdin
+}
+
+# Unified functions that work in both TUI and terminal mode
+ui_msgbox() {
+    if [ "$USE_TUI" = true ]; then
+        impl_msgbox "$@"
+    else
+        term_msgbox "$@"
+    fi
+}
+
+ui_inputbox() {
+    if [ "$USE_TUI" = true ]; then
+        impl_inputbox "$@"
+    else
+        term_inputbox "$@"
+    fi
+}
+
+ui_passwordbox() {
+    if [ "$USE_TUI" = true ]; then
+        impl_passwordbox "$@"
+    else
+        term_passwordbox "$@"
+    fi
+}
+
+ui_yesno() {
+    if [ "$USE_TUI" = true ]; then
+        impl_yesno "$@"
+    else
+        term_yesno "$@"
+    fi
+}
+
+ui_checklist() {
+    if [ "$USE_TUI" = true ]; then
+        impl_checklist "$@"
+    else
+        term_checklist "$@"
+    fi
+}
+
+ui_gauge() {
+    if [ "$USE_TUI" = true ]; then
+        impl_gauge "$@"
+    else
+        term_gauge "$@"
+    fi
+}
+
+# TUI implementation functions (for when USE_TUI=true)
+impl_msgbox() {
     local msg="$1"
     local height="${2:-12}"
     local width="${3:-70}"
-    if [ "$USE_TUI" = true ]; then
-        if [ "$TUI_TOOL" = "whiptail" ]; then
-            whiptail --title "MyClaude Installer" --msgbox "$msg" "$height" "$width"
-        else
-            dialog --title "MyClaude Installer" --msgbox "$msg" "$height" "$width"
-        fi
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --msgbox "$msg" "$height" "$width"
     else
-        echo -e "\n=== $msg ===\n"
-        read -rp "Press Enter to continue..." _
+        dialog --title "MyClaude Installer" --msgbox "$msg" "$height" "$width"
     fi
 }
 
-tui_inputbox() {
+impl_inputbox() {
     local prompt="$1"
     local default="$2"
-    if [ "$USE_TUI" = true ]; then
-        if [ "$TUI_TOOL" = "whiptail" ]; then
-            whiptail --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
-        else
-            dialog --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
-        fi
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
     else
-        read -rp "$prompt [$default]: " input
-        echo "${input:-$default}"
+        dialog --title "MyClaude Installer" --inputbox "$prompt" 12 70 "$default" 3>&1 1>&2 2>&3
     fi
 }
 
-tui_passwordbox() {
+impl_passwordbox() {
     local prompt="$1"
-    if [ "$USE_TUI" = true ]; then
-        if [ "$TUI_TOOL" = "whiptail" ]; then
-            whiptail --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
-        else
-            dialog --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
-        fi
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
     else
-        read -rsp "$prompt: " input
-        echo
-        echo "$input"
+        dialog --title "MyClaude Installer" --passwordbox "$prompt" 12 70 3>&1 1>&2 2>&3
     fi
 }
 
-tui_yesno() {
+impl_yesno() {
     local prompt="$1"
-    if [ "$USE_TUI" = true ]; then
-        if [ "$TUI_TOOL" = "whiptail" ]; then
-            whiptail --title "MyClaude Installer" --yesno "$prompt" 12 70
-        else
-            dialog --title "MyClaude Installer" --yesno "$prompt" 12 70
-        fi
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --yesno "$prompt" 12 70
     else
-        read -rp "$prompt (y/N): " ans
-        [[ "$ans" =~ ^[Yy]$ ]]
+        dialog --title "MyClaude Installer" --yesno "$prompt" 12 70
     fi
 }
 
-tui_checklist() {
+impl_checklist() {
     local prompt="$1"
     local items="$2"
-    if [ "$USE_TUI" = true ]; then
-        if [ "$TUI_TOOL" = "whiptail" ]; then
-            whiptail --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
-        else
-            dialog --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
-        fi
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
     else
-        echo "$prompt"
-        local selected=""
-        for item in $items; do
-            item=$(echo "$item" | tr -d '"')
-            read -rp "Enable $item? (y/N): " ans
-            [[ "$ans" =~ ^[Yy]$ ]] && selected="$selected $item"
-        done
-        echo "$selected"
+        dialog --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
     fi
 }
 
-tui_gauge() {
-    if [ "$USE_TUI" = true ]; then
-        if [ "$TUI_TOOL" = "whiptail" ]; then
-            whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
-        else
-            dialog --title "MyClaude Installer" --gauge "$1" 10 70 0
-        fi
+impl_gauge() {
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
     else
-        echo "$1"
-        cat  # consume stdin
+        dialog --title "MyClaude Installer" --gauge "$1" 10 70 0
+    fi
+}
+
+ui_checklist() {
+    local prompt="$1"
+    local items="$2"
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
+    else
+        dialog --title "MyClaude Installer" --checklist "$prompt" 20 70 10 $items 3>&1 1>&2 2>&3
+    fi
+}
+
+ui_gauge() {
+    if [ "$TUI_TOOL" = "whiptail" ]; then
+        whiptail --title "MyClaude Installer" --gauge "$1" 10 70 0
+    else
+        dialog --title "MyClaude Installer" --gauge "$1" 10 70 0
     fi
 }
 
@@ -220,29 +322,29 @@ install_system_packages() {
 # ============================================================
 # STEP 1: API Keys (TUI)
 # ============================================================
-tui_step1_api_keys() {
-    tui_msgbox "Step 1 of 4: API Keys\n\nYou need at least one NVIDIA NIM API key.\nGet free keys at: https://build.nvidia.com\n\nYou can configure up to 4 keys for different model providers."
+step1_api_keys() {
+    ui_msgbox "Step 1 of 4: API Keys\n\nYou need at least one NVIDIA NIM API key.\nGet free keys at: https://build.nvidia.com\n\nYou can configure up to 4 keys for different model providers."
 
     # Key 1 - Required
     while true; do
-        NVIDIA_API_KEY=$(tui_passwordbox "Key 1: Primary NVIDIA (Required)\n\nEnter your NVIDIA NIM API key (nvapi-...):" "")
+        NVIDIA_API_KEY=$(ui_passwordbox "Key 1: Primary NVIDIA (Required)\n\nEnter your NVIDIA NIM API key (nvapi-...):" "")
         if [ -n "$NVIDIA_API_KEY" ]; then
             break
         fi
-        tui_msgbox "API key cannot be empty. Please try again."
+        ui_msgbox "API key cannot be empty. Please try again."
     done
 
     # Key 2 - Optional
-    NEMOTRON_SUPER_API_KEY=$(tui_passwordbox "Key 2: Nemotron Super (Optional)\n\nEnter API key for nemotron-3-super (press Enter to skip, falls back to Key 1):" "")
+    NEMOTRON_SUPER_API_KEY=$(ui_passwordbox "Key 2: Nemotron Super (Optional)\n\nEnter API key for nemotron-3-super (press Enter to skip, falls back to Key 1):" "")
 
     # Key 3 - Optional
-    MINIMAX_API_KEY=$(tui_passwordbox "Key 3: Minimax (Optional)\n\nEnter Minimax API key for minimax-m3 (press Enter to skip, falls back to Key 1):" "")
+    MINIMAX_API_KEY=$(ui_passwordbox "Key 3: Minimax (Optional)\n\nEnter Minimax API key for minimax-m3 (press Enter to skip, falls back to Key 1):" "")
 
     # Key 4 - Optional
-    STEPFUN_API_KEY=$(tui_passwordbox "Key 4: StepFun (Optional)\n\nEnter StepFun API key for step-3.7-flash (press Enter to skip, falls back to Key 1):" "")
+    STEPFUN_API_KEY=$(ui_passwordbox "Key 4: StepFun (Optional)\n\nEnter StepFun API key for step-3.7-flash (press Enter to skip, falls back to Key 1):" "")
 
     # Validate keys by testing
-    if tui_yesno "Test API keys now? (Recommended)"; then
+    if ui_yesno "Test API keys now? (Recommended)"; then
         test_keys
     fi
 
@@ -250,21 +352,12 @@ tui_step1_api_keys() {
 }
 
 test_keys() {
-    {
-        echo 20
-        sleep 1
-        echo 40
-        sleep 1
-        echo 60
-        sleep 1
-        echo 80
-        sleep 1
-        echo 100
-    } | tui_gauge "Testing API keys..."
+    echo "Testing API keys..."
 
     local test_result
 
     # Test NVIDIA key (Nemotron 3 Ultra)
+    echo -n "  Key 1 (NVIDIA - Nemotron 3 Ultra): "
     test_result=$(curl -s --max-time 15 \
         -H "Authorization: Bearer $NVIDIA_API_KEY" \
         -H "Content-Type: application/json" \
@@ -272,13 +365,15 @@ test_keys() {
         -d '{"model":"nvidia/nemotron-3-ultra-550b-a55b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
     if echo "$test_result" | grep -q "choices\|content"; then
-        tui_msgbox "✓ Key 1 (NVIDIA - Nemotron 3 Ultra): Valid"
+        echo "✓ Valid"
     else
-        tui_msgbox "✗ Key 1 (NVIDIA): Invalid or rate limited\n\n$test_result"
+        echo "✗ Invalid or rate limited"
+        echo "    $test_result"
     fi
 
     # Test Nemotron Super if provided
     if [ -n "$NEMOTRON_SUPER_API_KEY" ]; then
+        echo -n "  Key 2 (Nemotron Super): "
         test_result=$(curl -s --max-time 15 \
             -H "Authorization: Bearer $NEMOTRON_SUPER_API_KEY" \
             -H "Content-Type: application/json" \
@@ -286,14 +381,15 @@ test_keys() {
             -d '{"model":"nvidia/nemotron-3-super-120b-a12b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
-            tui_msgbox "✓ Key 2 (Nemotron Super): Valid"
+            echo "✓ Valid"
         else
-            tui_msgbox "✗ Key 2 (Nemotron Super): Invalid or rate limited"
+            echo "✗ Invalid or rate limited"
         fi
     fi
 
     # Test Minimax if provided
     if [ -n "$MINIMAX_API_KEY" ]; then
+        echo -n "  Key 3 (Minimax M3): "
         test_result=$(curl -s --max-time 15 \
             -H "Authorization: Bearer $MINIMAX_API_KEY" \
             -H "Content-Type: application/json" \
@@ -301,14 +397,15 @@ test_keys() {
             -d '{"model":"minimaxai/minimax-m3","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
-            tui_msgbox "✓ Key 3 (Minimax M3): Valid"
+            echo "✓ Valid"
         else
-            tui_msgbox "✗ Key 3 (Minimax): Invalid or rate limited"
+            echo "✗ Invalid or rate limited"
         fi
     fi
 
     # Test StepFun if provided
     if [ -n "$STEPFUN_API_KEY" ]; then
+        echo -n "  Key 4 (StepFun Step-3.7-Flash): "
         test_result=$(curl -s --max-time 15 \
             -H "Authorization: Bearer $STEPFUN_API_KEY" \
             -H "Content-Type: application/json" \
@@ -316,26 +413,29 @@ test_keys() {
             -d '{"model":"stepfun-ai/step-3.7-flash","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
-            tui_msgbox "✓ Key 4 (StepFun Step-3.7-Flash): Valid"
+            echo "✓ Valid"
         else
-            tui_msgbox "✗ Key 4 (StepFun): Invalid or rate limited"
+            echo "✗ Invalid or rate limited"
         fi
     fi
+
+    echo ""
+    read -rp "Press Enter to continue..." _
 }
 
 # ============================================================
 # STEP 2: Model Mapping (TUI)
 # ============================================================
-tui_step2_model_mapping() {
-    tui_msgbox "Step 2 of 4: Model Mapping\n\nMap each Claude Code model to an NVIDIA backend.\n\nCurrent defaults:\n• claude-opus-5 → nemotron-3-ultra (Key 1)\n• claude-sonnet-5 → nemotron-3-super (Key 2)\n• claude-sonnet-5-1m → minimax-m3 (Key 3)\n• claude-haiku-4-5 → step-3.7-flash (Key 4)"
+step2_model_mapping() {
+    ui_msgbox "Step 2 of 4: Model Mapping\n\nMap each Claude Code model to an NVIDIA backend.\n\nCurrent defaults:\n• claude-opus-5 → nemotron-3-ultra (Key 1)\n• claude-sonnet-5 → nemotron-3-super (Key 2)\n• claude-sonnet-5-1m → minimax-m3 (Key 3)\n• claude-haiku-4-5 → step-3.7-flash (Key 4)"
 
     # For now, use defaults. Advanced users can edit config.yaml later
-    if tui_yesno "Use default model mapping?\n\n(You can customize later by editing config.yaml)"; then
+    if ui_yesno "Use default model mapping?\n\n(You can customize later by editing config.yaml)"; then
         return 0
     fi
 
     # Custom mapping - simplified for TUI
-    tui_msgbox "Custom mapping selected.\n\nAfter installation, edit config.yaml to customize:\n  $REPO_DIR/config.yaml\n\nEach model entry has:\n  - model_name: claude-opus-5\n  - litellm_params.model: nvidia_nim/...\n  - litellm_params.api_key: os.environ/..."
+    ui_msgbox "Custom mapping selected.\n\nAfter installation, edit config.yaml to customize:\n  $REPO_DIR/config.yaml\n\nEach model entry has:\n  - model_name: claude-opus-5\n  - litellm_params.model: nvidia_nim/...\n  - litellm_params.api_key: os.environ/..."
 
     return 0
 }
@@ -343,11 +443,11 @@ tui_step2_model_mapping() {
 # ============================================================
 # STEP 3: Advanced Options (TUI)
 # ============================================================
-tui_step3_advanced() {
-    tui_msgbox "Step 3 of 4: Advanced Options"
+step3_advanced() {
+    ui_msgbox "Step 3 of 4: Advanced Options"
 
     local options
-    options=$(tui_checklist "Select advanced options:" \
+    options=$(ui_checklist "Select advanced options:" \
         "lan" "Enable LAN Access (0.0.0.0:4000 + firewall)" OFF \
         "logging" "Enable request/response logging" OFF \
         "custom_limits" "Custom nginx rate limits" OFF \
@@ -369,15 +469,15 @@ tui_step3_advanced() {
     done
 
     if [ "$CUSTOM_LIMITS" = true ]; then
-        NGINX_RATE=$(tui_inputbox "Nginx rate limit (req/s):" "16")
-        NGINX_BURST=$(tui_inputbox "Nginx burst limit:" "32")
+        NGINX_RATE=$(ui_inputbox "Nginx rate limit (req/s):" "16")
+        NGINX_BURST=$(ui_inputbox "Nginx burst limit:" "32")
     else
         NGINX_RATE=16
         NGINX_BURST=32
     fi
 
     if [ "$CUSTOM_TIMEOUTS" = true ]; then
-        REQUEST_TIMEOUT=$(tui_inputbox "Request timeout (seconds):" "3600")
+        REQUEST_TIMEOUT=$(ui_inputbox "Request timeout (seconds):" "3600")
     else
         REQUEST_TIMEOUT=3600
     fi
@@ -388,10 +488,10 @@ tui_step3_advanced() {
 # ============================================================
 # STEP 4: Raw Payload Validation (TUI)
 # ============================================================
-tui_step4_payload() {
-    tui_msgbox "Step 4 of 4: Raw Payload Validation\n\nYou can customize the JSON payload sent to NVIDIA for each model.\n\nDefaults are optimized for each model. Advanced users can edit after installation."
+step4_payload() {
+    ui_msgbox "Step 4 of 4: Raw Payload Validation\n\nYou can customize the JSON payload sent to NVIDIA for each model.\n\nDefaults are optimized for each model. Advanced users can edit after installation."
 
-    if tui_yesno "View default payload for claude-opus-5?"; then
+    if ui_yesno "View default payload for claude-opus-5?"; then
         cat > /tmp/payload_example.json <<'EOF'
 {
   "model": "nvidia/nemotron-3-ultra-550b-a55b",
@@ -457,7 +557,7 @@ run_installation() {
 
         echo 100; echo "# Verification..."; sleep 1
         verify
-    } | tui_gauge "Installing MyClaude..."
+    } | ui_gauge "Installing MyClaude..."
 }
 
 # ============================================================
@@ -486,7 +586,7 @@ ENVEOF
 setup_system_user() {
     if id "$SERVICE_USER" &>/dev/null; then
         if [ "$USE_TUI" = true ]; then
-            if tui_yesno "User '$SERVICE_USER' already exists. Re-create it?"; then
+            if ui_yesno "User '$SERVICE_USER' already exists. Re-create it?"; then
                 sudo userdel -r "$SERVICE_USER" 2>/dev/null || true
                 sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
             fi
@@ -564,7 +664,7 @@ setup_nginx() {
     if sudo nginx -t 2>&1 | grep -q "successful"; then
         sudo systemctl reload nginx
     else
-        tui_msgbox "Nginx config test failed. Check $NGINX_CONF"
+        ui_msgbox "Nginx config test failed. Check $NGINX_CONF"
         exit 1
     fi
 }
@@ -589,7 +689,7 @@ setup_systemd() {
 
     sleep 3
     if ! sudo systemctl is-active --quiet "$SERVICE_NAME"; then
-        tui_msgbox "myclaude.service failed to start.\nCheck: journalctl -u $SERVICE_NAME -n 20"
+        ui_msgbox "myclaude.service failed to start.\nCheck: journalctl -u $SERVICE_NAME -n 20"
         exit 1
     fi
 }
@@ -600,7 +700,7 @@ setup_claude_code() {
     fi
 
     if [ "$USE_TUI" = true ]; then
-        if ! tui_yesno "Claude Code not found. Install now?"; then
+        if ! ui_yesno "Claude Code not found. Install now?"; then
             return 0
         fi
     else
@@ -611,7 +711,7 @@ setup_claude_code() {
         npm install -g @anthropic-ai/claude-code
     else
         if [ "$USE_TUI" = true ]; then
-            tui_msgbox "npm not found. Install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
+            ui_msgbox "npm not found. Install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
         else
             echo "npm not found. Please install Node.js and run: npm install -g @anthropic-ai/claude-code"
         fi
@@ -682,11 +782,11 @@ setup_lan_hosting() {
 
 verify() {
     if ! ss -tlnp 2>/dev/null | grep -q ':4000 '; then
-        tui_msgbox "ERROR: Nginx NOT on port 4000"
+        ui_msgbox "ERROR: Nginx NOT on port 4000"
         exit 1
     fi
     if ! ss -tlnp 2>/dev/null | grep -q ':4001 '; then
-        tui_msgbox "ERROR: LiteLLM NOT on port 4001"
+        ui_msgbox "ERROR: LiteLLM NOT on port 4001"
         exit 1
     fi
 
@@ -698,7 +798,7 @@ verify() {
         -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
     if ! echo "$test_result" | grep -q "choices\|content"; then
-        tui_msgbox "WARNING: Proxy test returned unexpected result:\n$test_result"
+        ui_msgbox "WARNING: Proxy test returned unexpected result:\n$test_result"
     fi
 }
 
@@ -709,25 +809,25 @@ main() {
     cd "$REPO_DIR"
 
     # Welcome screen
-    if ! tui_yesno "Welcome to MyClaude Installer\n\nThis will set up:\n• nginx reverse proxy (port 4000)\n• LiteLLM proxy (port 4001)\n• NVIDIA NIM model routing\n• systemd service\n• myclaude command wrapper\n\nContinue?"; then
+    if ! ui_yesno "Welcome to MyClaude Installer\n\nThis will set up:\n• nginx reverse proxy (port 4000)\n• LiteLLM proxy (port 4001)\n• NVIDIA NIM model routing\n• systemd service\n• myclaude command wrapper\n\nContinue?"; then
         echo "Installation cancelled."
         exit 0
     fi
 
     # Step 1: API Keys
-    tui_step1_api_keys
+    step1_api_keys
 
     # Step 2: Model Mapping
-    tui_step2_model_mapping
+    step2_model_mapping
 
     # Step 3: Advanced Options
-    tui_step3_advanced
+    step3_advanced
 
     # Step 4: Payload Validation
-    tui_step4_payload
+    step4_payload
 
     # Confirm installation
-    if ! tui_yesno "Ready to install MyClaude?\n\nThis will:\n• Install system packages (nginx, python3-venv)\n• Create system user 'myclaude'\n• Set up Python venv + LiteLLM\n• Configure nginx + systemd\n• Install myclaude wrapper command\n\nProceed?"; then
+    if ! ui_yesno "Ready to install MyClaude?\n\nThis will:\n• Install system packages (nginx, python3-venv)\n• Create system user 'myclaude'\n• Set up Python venv + LiteLLM\n• Configure nginx + systemd\n• Install myclaude wrapper command\n\nProceed?"; then
         echo "Installation cancelled."
         exit 0
     fi
@@ -736,7 +836,7 @@ main() {
     run_installation
 
     # Success
-    tui_msgbox "Installation Complete!\n\nQuick start:\n  myclaude              # launch Claude Code\n  myclaude --help       # pass args to Claude Code\n\nService management:\n  sudo systemctl status myclaude\n  sudo systemctl restart myclaude\n  journalctl -u myclaude -f\n\nConvenience aliases (run 'source ~/.bashrc'):\n  myclaude-status  myclaude-logs  myclaude-start  myclaude-stop"
+    ui_msgbox "Installation Complete!\n\nQuick start:\n  myclaude              # launch Claude Code\n  myclaude --help       # pass args to Claude Code\n\nService management:\n  sudo systemctl status myclaude\n  sudo systemctl restart myclaude\n  journalctl -u myclaude -f\n\nConvenience aliases (run 'source ~/.bashrc'):\n  myclaude-status  myclaude-logs  myclaude-start  myclaude-stop"
 }
 
 # Handle --auto mode for non-interactive
