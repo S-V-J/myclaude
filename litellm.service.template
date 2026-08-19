@@ -1,16 +1,94 @@
 [Unit]
 Description=LiteLLM Proxy for MyClaude (NVIDIA NIM)
-After=network.target
+Documentation=https://docs.litellm.ai/
+After=network-online.target nginx.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
-WorkingDirectory=__REPO_DIR__
-EnvironmentFile=__REPO_DIR__/.env
-Environment="PORT=4001"
-ExecStart=__VENV_DIR__/bin/litellm --config __REPO_DIR__/config.yaml --port 4001
-Restart=always
-RestartSec=5
+# Type=simple works reliably with LiteLLM (notify requires sd_notify)
+
+# User and permissions
 User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__REPO_DIR__
+
+# Environment
+EnvironmentFile=__REPO_DIR__/.env
+Environment="PORT=__PORT__"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="LITELLM_LOG_LEVEL=WARNING"
+Environment="LITELLM_LOG_FORMAT=json"
+# Python GC tuning for lower memory usage in on-demand scenarios
+Environment="PYTHONGC=1"
+Environment="PYTHONTRACEMALLOC=0"
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+
+# Capabilities (drop all, add only needed)
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+LimitMEMLOCK=infinity
+MemoryMax=4G
+MemoryHigh=3.5G
+CPUQuota=200%
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+TasksMax=8192
+
+# Restart policy
+# Changed from 'always' to 'on-failure' to allow on-demand wrapper to stop service
+# without systemd immediately restarting it.
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=255
+
+# Startup
+ExecStartPre=/bin/bash -c 'test -f __REPO_DIR__/config.yaml || exit 1'
+ExecStartPre=/bin/bash -c 'test -r __REPO_DIR__/.env || exit 1'
+ExecStart=__VENV_DIR__/bin/litellm --config __REPO_DIR__/config.yaml --port __PORT__ --host 0.0.0.0
+
+# Health checks (systemd 247+)
+HealthCheckIntervalSec=30
+HealthCheckTimeoutSec=10
+HealthCheckStartDelaySec=15
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=myclaude-litellm
+
+# Reload signal
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=30
+TimeoutStartSec=60
 
 [Install]
 WantedBy=multi-user.target

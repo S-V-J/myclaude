@@ -29,6 +29,8 @@ SERVICE_NAME="myclaude"
 NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 VENV_DIR="$REPO_DIR/venv"
 SERVICE_USER="myclaude"
+CLAUDE_SETTINGS_DIR="$HOME/.claude"
+CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_DIR/settings.json"
 
 # Detect OS and package manager
 detect_os() {
@@ -330,25 +332,25 @@ install_system_packages() {
 # STEP 1: API Keys (TUI)
 # ============================================================
 step1_api_keys() {
-    ui_msgbox "Step 1 of 4: API Keys\n\nYou need at least one NVIDIA NIM API key.\nGet free keys at: https://build.nvidia.com\n\nYou can configure up to 4 keys for different model providers."
+    ui_msgbox "Step 1 of 4: API Keys\n\nYou need at least one NVIDIA NIM API key.\nGet free keys at: https://build.nvidia.com\n\nAll models use Nemotron 3 Ultra. You can configure up to 4 keys for load isolation (80 RPM combined)."
 
     # Key 1 - Required
     while true; do
-        NVIDIA_API_KEY=$(ui_passwordbox "Key 1: Primary NVIDIA (Required)\n\nEnter your NVIDIA NIM API key (nvapi-...):" "")
-        if [ -n "$NVIDIA_API_KEY" ]; then
+        NVIDIA_API_KEY_PROJECT_1=$(ui_passwordbox "Key 1: Primary NVIDIA (Required)\n\nEnter your NVIDIA NIM API key for Nemotron 3 Ultra (nvapi-...):" "")
+        if [ -n "$NVIDIA_API_KEY_PROJECT_1" ]; then
             break
         fi
         ui_msgbox "API key cannot be empty. Please try again."
     done
 
     # Key 2 - Optional
-    NEMOTRON_SUPER_API_KEY=$(ui_passwordbox "Key 2: Nemotron Super (Optional)\n\nEnter API key for nemotron-3-super (press Enter to skip, falls back to Key 1):" "")
+    NVIDIA_API_KEY_PROJECT_2=$(ui_passwordbox "Key 2: Nemotron Ultra - Project 2 (Optional)\n\nEnter API key for load isolation (press Enter to skip, falls back to Key 1):" "")
 
     # Key 3 - Optional
-    MINIMAX_API_KEY=$(ui_passwordbox "Key 3: Minimax (Optional)\n\nEnter Minimax API key for minimax-m3 (press Enter to skip, falls back to Key 1):" "")
+    NVIDIA_API_KEY_PROJECT_3=$(ui_passwordbox "Key 3: Nemotron Ultra - Project 3 (Optional)\n\nEnter API key for load isolation (press Enter to skip, falls back to Key 1):" "")
 
     # Key 4 - Optional
-    STEPFUN_API_KEY=$(ui_passwordbox "Key 4: StepFun (Optional)\n\nEnter StepFun API key for step-3.7-flash (press Enter to skip, falls back to Key 1):" "")
+    NVIDIA_API_KEY_PROJECT_4=$(ui_passwordbox "Key 4: Nemotron Ultra - Project 4 (Optional)\n\nEnter API key for load isolation (press Enter to skip, falls back to Key 1):" "")
 
     # Validate keys by testing
     if ui_yesno "Test API keys now? (Recommended)"; then
@@ -359,14 +361,14 @@ step1_api_keys() {
 }
 
 test_keys() {
-    echo "Testing API keys..."
+    echo "Testing API keys (all Nemotron 3 Ultra)..."
 
     local test_result
 
-    # Test NVIDIA key (Nemotron 3 Ultra)
-    echo -n "  Key 1 (NVIDIA - Nemotron 3 Ultra): "
+    # Test Key 1 (Nemotron 3 Ultra)
+    echo -n "  Key 1 (PROJECT_1 - Nemotron 3 Ultra): "
     test_result=$(curl -s --max-time 15 \
-        -H "Authorization: Bearer $NVIDIA_API_KEY" \
+        -H "Authorization: Bearer $NVIDIA_API_KEY_PROJECT_1" \
         -H "Content-Type: application/json" \
         -X POST https://integrate.api.nvidia.com/v1/chat/completions \
         -d '{"model":"nvidia/nemotron-3-ultra-550b-a55b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
@@ -378,14 +380,14 @@ test_keys() {
         echo "    $test_result"
     fi
 
-    # Test Nemotron Super if provided
-    if [ -n "$NEMOTRON_SUPER_API_KEY" ]; then
-        echo -n "  Key 2 (Nemotron Super): "
+    # Test Key 2 if provided
+    if [ -n "$NVIDIA_API_KEY_PROJECT_2" ]; then
+        echo -n "  Key 2 (PROJECT_2 - Nemotron 3 Ultra): "
         test_result=$(curl -s --max-time 15 \
-            -H "Authorization: Bearer $NEMOTRON_SUPER_API_KEY" \
+            -H "Authorization: Bearer $NVIDIA_API_KEY_PROJECT_2" \
             -H "Content-Type: application/json" \
             -X POST https://integrate.api.nvidia.com/v1/chat/completions \
-            -d '{"model":"nvidia/nemotron-3-super-120b-a12b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
+            -d '{"model":"nvidia/nemotron-3-ultra-550b-a55b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
             echo "✓ Valid"
@@ -394,14 +396,14 @@ test_keys() {
         fi
     fi
 
-    # Test Minimax if provided
-    if [ -n "$MINIMAX_API_KEY" ]; then
-        echo -n "  Key 3 (Minimax M3): "
+    # Test Key 3 if provided
+    if [ -n "$NVIDIA_API_KEY_PROJECT_3" ]; then
+        echo -n "  Key 3 (PROJECT_3 - Nemotron 3 Ultra): "
         test_result=$(curl -s --max-time 15 \
-            -H "Authorization: Bearer $MINIMAX_API_KEY" \
+            -H "Authorization: Bearer $NVIDIA_API_KEY_PROJECT_3" \
             -H "Content-Type: application/json" \
             -X POST https://integrate.api.nvidia.com/v1/chat/completions \
-            -d '{"model":"minimaxai/minimax-m3","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
+            -d '{"model":"nvidia/nemotron-3-ultra-550b-a55b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
             echo "✓ Valid"
@@ -410,14 +412,14 @@ test_keys() {
         fi
     fi
 
-    # Test StepFun if provided
-    if [ -n "$STEPFUN_API_KEY" ]; then
-        echo -n "  Key 4 (StepFun Step-3.7-Flash): "
+    # Test Key 4 if provided
+    if [ -n "$NVIDIA_API_KEY_PROJECT_4" ]; then
+        echo -n "  Key 4 (PROJECT_4 - Nemotron 3 Ultra): "
         test_result=$(curl -s --max-time 15 \
-            -H "Authorization: Bearer $STEPFUN_API_KEY" \
+            -H "Authorization: Bearer $NVIDIA_API_KEY_PROJECT_4" \
             -H "Content-Type: application/json" \
             -X POST https://integrate.api.nvidia.com/v1/chat/completions \
-            -d '{"model":"stepfun-ai/step-3.7-flash","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
+            -d '{"model":"nvidia/nemotron-3-ultra-550b-a55b","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
         if echo "$test_result" | grep -q "choices\|content"; then
             echo "✓ Valid"
@@ -434,15 +436,15 @@ test_keys() {
 # STEP 2: Model Mapping (TUI)
 # ============================================================
 step2_model_mapping() {
-    ui_msgbox "Step 2 of 4: Model Mapping\n\nMap each Claude Code model to an NVIDIA backend.\n\nCurrent defaults:\n• claude-opus-5 → nemotron-3-ultra (Key 1)\n• claude-sonnet-5 → nemotron-3-super (Key 2)\n• claude-sonnet-5-1m → minimax-m3 (Key 3)\n• claude-haiku-4-5 → step-3.7-flash (Key 4)"
+    ui_msgbox "Step 2 of 4: Model Mapping\n\nAll Claude Code models map to Nemotron 3 Ultra with different API keys for load isolation:\n\n• claude-opus-5 (Default/Opus 1M) → Nemotron 3 Ultra (PROJECT_1)\n• claude-sonnet-5 (Sonnet) → Nemotron 3 Ultra (PROJECT_2)\n• claude-sonnet-5-1m (Sonnet 1M) → Nemotron 3 Ultra (PROJECT_3)\n• claude-haiku-4-5 (Haiku) → Nemotron 3 Ultra (PROJECT_4)\n\nThis provides 80 RPM combined (20 RPM per key) with load isolation."
 
     # For now, use defaults. Advanced users can edit config.yaml later
-    if ui_yesno "Use default model mapping?\n\n(You can customize later by editing config.yaml)"; then
+    if ui_yesno "Use this model mapping?\n\n(You can customize later by editing config.yaml)"; then
         return 0
     fi
 
     # Custom mapping - simplified for TUI
-    ui_msgbox "Custom mapping selected.\n\nAfter installation, edit config.yaml to customize:\n  $REPO_DIR/config.yaml\n\nEach model entry has:\n  - model_name: claude-opus-5\n  - litellm_params.model: nvidia_nim/...\n  - litellm_params.api_key: os.environ/..."
+    ui_msgbox "Custom mapping selected.\n\nAfter installation, edit config.yaml to customize:\n  $REPO_DIR/config.yaml\n\nEach model entry has:\n  - model_name: claude-opus-5\n  - litellm_params.model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b\n  - litellm_params.api_key: os.environ/NVIDIA_API_KEY_PROJECT_1"
 
     return 0
 }
@@ -571,6 +573,9 @@ run_installation() {
         echo 70; echo "# Installing Claude Code..."; sleep 1
         setup_claude_code
 
+        echo 75; echo "# Setting up Claude Code settings..."; sleep 1
+        setup_claude_settings
+
         echo 80; echo "# Setting up aliases..."; sleep 1
         setup_bashrc
 
@@ -593,19 +598,22 @@ write_env_file() {
     LOCAL_KEY="sk-local-$(openssl rand -hex 16 2>/dev/null || echo "proxykey$(date +%s)")"
     cat > "$REPO_DIR/.env" <<ENVEOF
 # MyClaude Environment Configuration
-NVIDIA_API_KEY="$NVIDIA_API_KEY"
+NVIDIA_API_KEY_PROJECT_1="$NVIDIA_API_KEY_PROJECT_1"
 ENVEOF
-    if [ -n "${NEMOTRON_SUPER_API_KEY:-}" ]; then
-        echo "NEMOTRON_SUPER_API_KEY=\"$NEMOTRON_SUPER_API_KEY\"" >> "$REPO_DIR/.env"
+    if [ -n "${NVIDIA_API_KEY_PROJECT_2:-}" ]; then
+        echo "NVIDIA_API_KEY_PROJECT_2=\"$NVIDIA_API_KEY_PROJECT_2\"" >> "$REPO_DIR/.env"
     fi
-    if [ -n "${MINIMAX_API_KEY:-}" ]; then
-        echo "MINIMAX_API_KEY=\"$MINIMAX_API_KEY\"" >> "$REPO_DIR/.env"
+    if [ -n "${NVIDIA_API_KEY_PROJECT_3:-}" ]; then
+        echo "NVIDIA_API_KEY_PROJECT_3=\"$NVIDIA_API_KEY_PROJECT_3\"" >> "$REPO_DIR/.env"
     fi
-    if [ -n "${STEPFUN_API_KEY:-}" ]; then
-        echo "STEPFUN_API_KEY=\"$STEPFUN_API_KEY\"" >> "$REPO_DIR/.env"
+    if [ -n "${NVIDIA_API_KEY_PROJECT_4:-}" ]; then
+        echo "NVIDIA_API_KEY_PROJECT_4=\"$NVIDIA_API_KEY_PROJECT_4\"" >> "$REPO_DIR/.env"
     fi
     echo "LITELLM_MASTER_KEY=\"$LOCAL_KEY\"" >> "$REPO_DIR/.env"
     echo "LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=\"true\"" >> "$REPO_DIR/.env"
+
+    # On-demand configuration
+    echo "MYCLAUDE_IDLE_TIMEOUT=300" >> "$REPO_DIR/.env"
 }
 
 setup_system_user() {
@@ -683,6 +691,24 @@ setup_nginx() {
         sudo sed -i "s|burst=32|burst=${NGINX_BURST}|g" "$NGINX_CONF"
     fi
 
+    # On-demand optimizations: reduce worker processes and buffer sizes
+    # These settings are applied when on-demand mode is detected (MYCLAUDE_IDLE_TIMEOUT > 0)
+    if ! grep -q "worker_processes 1;" /etc/nginx/nginx.conf 2>/dev/null; then
+        # Check if we should optimize for on-demand
+        if [ -f "$REPO_DIR/.env" ] && grep -q "MYCLAUDE_IDLE_TIMEOUT" "$REPO_DIR/.env"; then
+            local idle_timeout
+            idle_timeout=$(grep "MYCLAUDE_IDLE_TIMEOUT" "$REPO_DIR/.env" | cut -d= -f2)
+            if [ "$idle_timeout" -gt 0 ] 2>/dev/null; then
+                log_info "Applying on-demand nginx optimizations (worker_processes=1)..."
+                sudo sed -i 's/^worker_processes auto;/worker_processes 1;/' /etc/nginx/nginx.conf
+                # Also add smaller buffer settings if not present
+                if ! grep -q "client_body_buffer_size 64k;" /etc/nginx/nginx.conf 2>/dev/null; then
+                    sudo sed -i '/http {/a\    client_body_buffer_size 64k;\n    client_header_buffer_size 512;\n    keepalive_timeout 30s;' /etc/nginx/nginx.conf
+                fi
+            fi
+        fi
+    fi
+
     if sudo nginx -t 2>&1 | grep -q "successful"; then
         sudo systemctl reload nginx
     else
@@ -729,25 +755,30 @@ setup_systemd() {
 
 setup_claude_code() {
     if command -v claude &>/dev/null; then
+        log_info "Claude Code already installed: $(claude --version 2>/dev/null || echo 'unknown version')"
         return 0
     fi
 
     if [ "$USE_TUI" = true ]; then
-        if ! ui_yesno "Claude Code not found. Install now?"; then
+        if ! ui_yesno "Claude Code not found. Install now via npm?"; then
+            log_warn "Skipping Claude Code installation. You'll need to install it manually: npm install -g @anthropic-ai/claude-code"
             return 0
         fi
     else
-        echo "Claude Code not found, installing..."
+        log_info "Claude Code not found, installing via npm..."
     fi
 
     if command -v npm &>/dev/null; then
+        log_info "Installing Claude Code via npm..."
         npm install -g @anthropic-ai/claude-code
+        log_success "Claude Code installed successfully"
     else
         if [ "$USE_TUI" = true ]; then
-            ui_msgbox "npm not found. Install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
+            ui_msgbox "npm not found. Please install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
         else
-            echo "npm not found. Please install Node.js and run: npm install -g @anthropic-ai/claude-code"
+            log_error "npm not found. Please install Node.js and run: npm install -g @anthropic-ai/claude-code"
         fi
+        return 1
     fi
 }
 
@@ -768,38 +799,572 @@ BASHEOF
     fi
 }
 
+setup_claude_settings() {
+    log_info "Setting up ~/.claude/settings.json..."
+
+    mkdir -p "$CLAUDE_SETTINGS_DIR"
+
+    # Check if settings.json already exists and prompt
+    if [ -f "$CLAUDE_SETTINGS_FILE" ]; then
+        if [ "$USE_TUI" = true ]; then
+            if ! ui_yesno "~/.claude/settings.json already exists. Overwrite with MyClaude optimized settings?"; then
+                log_info "Keeping existing settings.json"
+                return 0
+            fi
+        else
+            log_info "~/.claude/settings.json exists, overwriting with MyClaude optimized settings..."
+        fi
+    fi
+
+    cat > "$CLAUDE_SETTINGS_FILE" <<'SETTINGSEOF'
+{
+  "autoCompactWindow": 1000000,
+  "theme": "auto",
+  "verbose": false,
+  "permissions": {
+    "bash": {
+      "allow": [
+        "git *",
+        "gh *",
+        "npm *",
+        "npx *",
+        "pip *",
+        "pip3 *",
+        "python *",
+        "python3 *",
+        "docker *",
+        "docker-compose *",
+        "kubectl *",
+        "helm *",
+        "terraform *",
+        "ansible *",
+        "make *",
+        "cmake *",
+        "cargo *",
+        "go *",
+        "mvn *",
+        "gradle *",
+        "systemctl *",
+        "service *",
+        "journalctl *",
+        "nginx *",
+        "ufw *",
+        "firewall-cmd *",
+        "iptables *",
+        "ss *",
+        "netstat *",
+        "lsof *",
+        "ps *",
+        "top *",
+        "htop *",
+        "free *",
+        "df *",
+        "du *",
+        "ls *",
+        "find *",
+        "grep *",
+        "rg *",
+        "awk *",
+        "sed *",
+        "cat *",
+        "head *",
+        "tail *",
+        "less *",
+        "more *",
+        "vim *",
+        "nano *",
+        "code *",
+        "chmod *",
+        "chown *",
+        "mkdir *",
+        "rm *",
+        "cp *",
+        "mv *",
+        "ln *",
+        "tar *",
+        "gzip *",
+        "gunzip *",
+        "unzip *",
+        "curl *",
+        "wget *",
+        "ssh *",
+        "scp *",
+        "rsync *",
+        "sudo *",
+        "apt *",
+        "apt-get *",
+        "dnf *",
+        "yum *",
+        "pacman *",
+        "zypper *",
+        "snap *",
+        "flatpak *",
+        "brew *",
+        "npm *",
+        "yarn *",
+        "pnpm *",
+        "bun *",
+        "deno *",
+        "nvm *",
+        "fnm *",
+        "pyenv *",
+        "rbenv *",
+        "rustup *",
+        "sdkman *",
+        "asdf *"
+      ],
+      "deny": []
+    }
+  },
+  "autoCompact": true,
+  "autoScroll": true,
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/home/ML"
+      ]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres"
+      ],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "${POSTGRES_URL}"
+      }
+    },
+    "sqlite": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sqlite",
+        "--db-path",
+        "/home/ML/data.db"
+      ]
+    },
+    "redis": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-redis"
+      ],
+      "env": {
+        "REDIS_URL": "${REDIS_URL}"
+      }
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[PRE] Running: $TOOL_INPUT'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[POST] Completed: $TOOL_INPUT'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Session ended at $(date)'"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opus[1m]",
+  "maxTokens": 8192,
+  "temperature": 0.1,
+  "env": {
+    "CLAUDE_CODE_AUTO_COMPACT": "true",
+    "CLAUDE_CODE_MAX_THINKING_TOKENS": "32000",
+    "CLAUDE_CODE_ENABLE_THINKING": "true",
+    "CLAUDE_CODE_BYPASS_PERMISSIONS": "false"
+  },
+  "agentSettings": {
+    "defaultAgent": "general-purpose",
+    "availableAgents": [
+      "general-purpose",
+      "code-reviewer",
+      "security-auditor",
+      "performance-engineer",
+      "devops-engineer",
+      "database-engineer",
+      "frontend-engineer",
+      "backend-engineer",
+      "ml-engineer",
+      "api-designer",
+      "test-engineer",
+      "documentation-writer"
+    ]
+  },
+  "workspace": {
+    "root": "/home/ML",
+    "include": [
+      "**/*.py",
+      "**/*.js",
+      "**/*.ts",
+      "**/*.json",
+      "**/*.yaml",
+      "**/*.yml",
+      "**/*.md",
+      "**/*.sh",
+      "**/*.dockerfile",
+      "**/Dockerfile*",
+      "**/*.tf",
+      "**/*.go",
+      "**/*.rs",
+      "**/*.java",
+      "**/*.kt",
+      "**/*.cs",
+      "**/*.cpp",
+      "**/*.c",
+      "**/*.h",
+      "**/*.hpp"
+    ],
+    "exclude": [
+      "node_modules/**",
+      ".git/**",
+      "venv/**",
+      "__pycache__/**",
+      "*.log",
+      "*.tmp",
+      "dist/**",
+      "build/**",
+      ".next/**",
+      "target/**",
+      "*.min.js",
+      "*.min.css"
+    ]
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "notifications": {
+    "enabled": true,
+    "sound": false
+  }
+}
+SETTINGSEOF
+
+    log_success "Created ~/.claude/settings.json with MyClaude optimized configuration"
+    log_info "Includes: MCP servers (GitHub, Filesystem, Fetch, Brave Search, Postgres, SQLite, Redis)"
+    log_info "Includes: Permissive bash permissions for development tools"
+    log_info "Includes: Auto-compact, thinking enabled, Opus 1M model"
+}
+
 setup_wrapper() {
     cat > /tmp/myclaude_wrapper <<'WRAPEOF'
 #!/bin/bash
 # myclaude wrapper — launches Claude Code through the LiteLLM proxy
 # Installed to /usr/local/bin/myclaude by install.sh
+# Supports on-demand activation with idle shutdown
+
+set -euo pipefail
 
 SERVICE_NAME="myclaude"
 NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 
-# Check if service is active, start if not
-if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-    echo "Starting MyClaude proxy..."
-    sudo systemctl start "$SERVICE_NAME"
-    sleep 3
-    if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-        echo "Failed to start. Check: journalctl -u $SERVICE_NAME -n 20"
-        exit 1
+# On-demand configuration (can be overridden via environment)
+IDLE_TIMEOUT="${MYCLAUDE_IDLE_TIMEOUT:-300}"  # 5 minutes default
+LOCK_FILE="/tmp/myclaude.lock"
+STATE_DIR="/tmp/myclaude"
+ACTIVITY_FILE="${STATE_DIR}/last_activity"
+MONITOR_PID_FILE="${STATE_DIR}/monitor.pid"
+STARTUP_RETRIES=3
+STARTUP_RETRY_DELAY=2
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
+# Ensure state directory exists
+mkdir -p "$STATE_DIR"
+
+# ============================================================
+# Lock Functions (prevent race conditions)
+# ============================================================
+acquire_lock() {
+    exec 200>"$LOCK_FILE"
+    if ! flock -n 200; then
+        log_info "Another myclaude instance is starting backend, waiting..."
+        flock 200  # Wait for lock
     fi
-fi
+}
 
-# Detect if TLS is enabled (check nginx config for port 4443)
-if grep -q "listen 4443" "$NGINX_CONF" 2>/dev/null; then
-    export ANTHROPIC_BASE_URL="https://localhost:4443"
-    export ANTHROPIC_API_KEY="sk-local-proxy-key"
-    echo "Launching Claude Code via MyClaude proxy (HTTPS)..."
-else
-    export ANTHROPIC_BASE_URL="http://localhost:4000"
-    export ANTHROPIC_API_KEY="sk-local-proxy-key"
-    echo "Launching Claude Code via MyClaude proxy (HTTP)..."
-fi
+release_lock() {
+    flock -u 200 2>/dev/null || true
+    exec 200>&-
+}
 
-exec claude "$@"
+# ============================================================
+# Memory Reporting
+# ============================================================
+report_memory_usage() {
+    local label="${1:-Current}"
+    local mem_mb
+    mem_mb=$(ps aux | awk '/[l]itellm|[n]ginx: worker/ {sum+=$6} END {print sum/1024}' 2>/dev/null || echo "0")
+    log_info "${label} RAM usage: ${mem_mb} MB"
+}
+
+# ============================================================
+# Activity Tracking
+# ============================================================
+update_activity() {
+    date +%s > "$ACTIVITY_FILE"
+}
+
+get_last_activity() {
+    cat "$ACTIVITY_FILE" 2>/dev/null || echo 0
+}
+
+is_idle() {
+    local last_activity
+    last_activity=$(get_last_activity)
+    local now
+    now=$(date +%s)
+    [ $((now - last_activity)) -gt "$IDLE_TIMEOUT" ]
+}
+
+# ============================================================
+# Backend Health Check
+# ============================================================
+wait_for_healthy() {
+    local max_wait=30
+    local waited=0
+    local interval=1
+
+    log_info "Waiting for backend to become healthy..."
+    while [ $waited -lt $max_wait ]; do
+        # Check nginx health endpoint (port 4000) - this tests the full proxy stack
+        if curl -s --max-time 2 -f "http://localhost:4000/health" >/dev/null 2>&1; then
+            log_success "Backend is healthy"
+            return 0
+        fi
+        sleep $interval
+        waited=$((waited + interval))
+        echo -n "."
+    done
+    echo ""
+    log_error "Backend health check timeout after ${max_wait}s"
+    return 1
+}
+
+# ============================================================
+# Start Backend with Retry Logic
+# ============================================================
+start_backend() {
+    local attempt=1
+
+    while [ $attempt -le $STARTUP_RETRIES ]; do
+        if [ $attempt -gt 1 ]; then
+            local delay=$((STARTUP_RETRY_DELAY * (2 ** (attempt - 2))))
+            log_warn "Retry $attempt/$STARTUP_RETRIES after ${delay}s..."
+            sleep $delay
+        fi
+
+        log_info "Starting MyClaude backend (attempt $attempt/$STARTUP_RETRIES)..."
+        if sudo systemctl start "$SERVICE_NAME"; then
+            if wait_for_healthy; then
+                log_success "MyClaude backend started successfully"
+                report_memory_usage "Post-startup"
+                return 0
+            else
+                log_warn "Backend started but health check failed"
+                sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+            fi
+        else
+            log_warn "systemctl start failed"
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    log_error "Failed to start backend after $STARTUP_RETRIES attempts"
+    log_error "Check: journalctl -u $SERVICE_NAME -n 30"
+    return 1
+}
+
+# ============================================================
+# Stop Backend Gracefully
+# ============================================================
+stop_backend() {
+    log_info "Stopping MyClaude backend due to idle timeout (${IDLE_TIMEOUT}s)..."
+    report_memory_usage "Pre-shutdown"
+
+    # Stop the monitor first
+    stop_idle_monitor
+
+    # Stop systemd service (stops both LiteLLM and nginx via dependencies)
+    if sudo systemctl stop "$SERVICE_NAME"; then
+        log_success "MyClaude backend stopped"
+    else
+        log_warn "systemctl stop returned non-zero (service may already be stopped)"
+    fi
+
+    # Clear activity file
+    rm -f "$ACTIVITY_FILE"
+    report_memory_usage "Post-shutdown"
+}
+
+# ============================================================
+# Idle Monitor (background process)
+# ============================================================
+spawn_idle_monitor() {
+    # Check if monitor is already running
+    if [ -f "$MONITOR_PID_FILE" ]; then
+        local existing_pid
+        existing_pid=$(cat "$MONITOR_PID_FILE" 2>/dev/null)
+        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+            return 0  # Monitor already running
+        fi
+    fi
+
+    (
+        # Child process - idle monitor
+        while true; do
+            sleep 30
+
+            # Acquire lock to safely check/stop
+            exec 200>"$LOCK_FILE"
+            if flock -n 200; then
+                if is_idle; then
+                    stop_backend
+                fi
+                flock -u 200
+            fi
+            exec 200>&-
+        done
+    ) &
+
+    local monitor_pid=$!
+    echo "$monitor_pid" > "$MONITOR_PID_FILE"
+    log_info "Idle monitor started (PID: $monitor_pid, timeout: ${IDLE_TIMEOUT}s)"
+}
+
+stop_idle_monitor() {
+    if [ -f "$MONITOR_PID_FILE" ]; then
+        local pid
+        pid=$(cat "$MONITOR_PID_FILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null
+            wait "$pid" 2>/dev/null || true
+            log_info "Idle monitor stopped"
+        fi
+        rm -f "$MONITOR_PID_FILE"
+    fi
+}
+
+# ============================================================
+# Cleanup on Exit
+# ============================================================
+cleanup() {
+    # Update activity one last time (so monitor doesn't stop immediately if user restarts quickly)
+    update_activity
+    # Don't stop monitor here - let it handle idle timeout naturally
+    # But if we're the last claude process, monitor will stop backend after timeout
+}
+trap cleanup EXIT
+
+# ============================================================
+# Main Logic
+# ============================================================
+main() {
+    # Acquire lock for startup critical section
+    acquire_lock
+
+    # Update activity timestamp
+    update_activity
+
+    # Check if backend is running
+    if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+        # Backend not running - start it
+        if ! start_backend; then
+            release_lock
+            exit 1
+        fi
+    else
+        log_info "MyClaude backend already running"
+    fi
+
+    # Spawn/restart idle monitor
+    spawn_idle_monitor
+
+    # Release lock before launching Claude Code (allows concurrent invocations)
+    release_lock
+
+    # Detect if TLS is enabled (check nginx config for port 4443)
+    if grep -q "listen 4443" "$NGINX_CONF" 2>/dev/null; then
+        export ANTHROPIC_BASE_URL="https://localhost:4443"
+        export NODE_TLS_REJECT_UNAUTHORIZED=0
+        export ANTHROPIC_API_KEY="sk-local-proxy-key"
+        log_info "Launching Claude Code via MyClaude proxy (HTTPS)..."
+    else
+        export ANTHROPIC_BASE_URL="http://localhost:4001"
+        export ANTHROPIC_API_KEY="sk-local-proxy-key"
+        log_info "Launching Claude Code via MyClaude proxy (HTTP)..."
+    fi
+
+    # Execute Claude Code - this blocks until user exits
+    exec claude "$@"
+}
+
+main "$@"
 WRAPEOF
 
     sudo cp /tmp/myclaude_wrapper /usr/local/bin/myclaude
@@ -851,9 +1416,16 @@ verify() {
         exit 1
     fi
 
+    # Read local key from .env
+    local local_key
+    local_key=$(grep "LITELLM_MASTER_KEY" "$REPO_DIR/.env" | cut -d'"' -f2)
+    if [ -z "$local_key" ]; then
+        local_key="sk-local-proxy-key"
+    fi
+
     local test_result
     test_result=$(curl -s --max-time 15 \
-        -H "Authorization: Bearer sk-local-proxy-key" \
+        -H "Authorization: Bearer $local_key" \
         -H "Content-Type: application/json" \
         -X POST http://localhost:4000/v1/chat/completions \
         -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
@@ -868,7 +1440,7 @@ verify() {
             ui_msgbox "WARNING: HTTPS NOT on port 4443"
         else
             test_result=$(curl -k -s --max-time 15 \
-                -H "Authorization: Bearer sk-local-proxy-key" \
+                -H "Authorization: Bearer $local_key" \
                 -H "Content-Type: application/json" \
                 -X POST https://localhost:4443/v1/chat/completions \
                 -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
@@ -887,7 +1459,7 @@ main() {
     cd "$REPO_DIR"
 
     # Welcome screen
-    if ! ui_yesno "Welcome to MyClaude Installer\n\nThis will set up:\n• nginx reverse proxy (port 4000)\n• LiteLLM proxy (port 4001)\n• NVIDIA NIM model routing\n• systemd service\n• myclaude command wrapper\n\nContinue?"; then
+    if ! ui_yesno "Welcome to MyClaude Installer\n\nThis will set up:\n• nginx reverse proxy (port 4000/4443)\n• LiteLLM proxy (port 4001)\n• NVIDIA NIM model routing (4 models)\n• systemd service with auto-restart\n• myclaude command wrapper\n• Claude Code CLI (if not installed)\n• ~/.claude/settings.json (MCP servers, permissions, Opus 1M)\n\nContinue?"; then
         echo "Installation cancelled."
         exit 0
     fi
@@ -905,7 +1477,7 @@ main() {
     step4_payload
 
     # Confirm installation
-    if ! ui_yesno "Ready to install MyClaude?\n\nThis will:\n• Install system packages (nginx, python3-venv)\n• Create system user 'myclaude'\n• Set up Python venv + LiteLLM\n• Configure nginx + systemd\n• Install myclaude wrapper command\n\nProceed?"; then
+    if ! ui_yesno "Ready to install MyClaude?\n\nThis will:\n• Install system packages (nginx, python3-venv)\n• Create system user 'myclaude'\n• Set up Python venv + LiteLLM\n• Configure nginx + systemd\n• Install myclaude wrapper command\n• Install Claude Code CLI (if missing)\n• Create ~/.claude/settings.json with MCP servers\n\nProceed?"; then
         echo "Installation cancelled."
         exit 0
     fi
@@ -914,16 +1486,16 @@ main() {
     run_installation
 
     # Success
-    ui_msgbox "Installation Complete!\n\nQuick start:\n  myclaude              # launch Claude Code\n  myclaude --help       # pass args to Claude Code\n\nService management:\n  sudo systemctl status myclaude\n  sudo systemctl restart myclaude\n  journalctl -u myclaude -f\n\nConvenience aliases (run 'source ~/.bashrc'):\n  myclaude-status  myclaude-logs  myclaude-start  myclaude-stop"
+    ui_msgbox "Installation Complete!\n\nQuick start:\n  myclaude              # launch Claude Code via NVIDIA NIM proxy (on-demand)\n  myclaude --help       # pass args to Claude Code\n\nOn-demand features:\n  • Backend starts automatically when you run 'myclaude'\n  • Backend stops after 5 minutes of inactivity (configurable)\n  • Set MYCLAUDE_IDLE_TIMEOUT=0 in .env to disable (always-on)\n\nService management:\n  sudo systemctl status myclaude\n  sudo systemctl restart myclaude\n  journalctl -u myclaude -f\n\nConvenience aliases (run 'source ~/.bashrc'):\n  myclaude-status  myclaude-logs  myclaude-start  myclaude-stop\n\nClaude Code configured with:\n  • ~/.claude/settings.json (MCP servers, permissions, Opus 1M)\n  • Auto-detects TLS (HTTPS on 4443 if enabled)"
 }
 
 # Handle --auto mode for non-interactive
 if [[ "${1:-}" == "--auto" ]]; then
-    # Use environment variables
-    NVIDIA_API_KEY="${NVIDIA_API_KEY:-}"
-    NEMOTRON_SUPER_API_KEY="${NEMOTRON_SUPER_API_KEY:-}"
-    MINIMAX_API_KEY="${MINIMAX_API_KEY:-}"
-    STEPFUN_API_KEY="${STEPFUN_API_KEY:-}"
+    # Use environment variables (all Nemotron 3 Ultra with 4 project keys)
+    NVIDIA_API_KEY_PROJECT_1="${NVIDIA_API_KEY_PROJECT_1:-}"
+    NVIDIA_API_KEY_PROJECT_2="${NVIDIA_API_KEY_PROJECT_2:-}"
+    NVIDIA_API_KEY_PROJECT_3="${NVIDIA_API_KEY_PROJECT_3:-}"
+    NVIDIA_API_KEY_PROJECT_4="${NVIDIA_API_KEY_PROJECT_4:-}"
     ENABLE_LAN="${ENABLE_LAN:-false}"
     ENABLE_TLS="${ENABLE_TLS:-false}"
     TLS_DOMAIN="${TLS_DOMAIN:-localhost}"
@@ -931,9 +1503,10 @@ if [[ "${1:-}" == "--auto" ]]; then
     NGINX_RATE="${NGINX_RATE:-16}"
     NGINX_BURST="${NGINX_BURST:-32}"
     REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-3600}"
+    AUTO_MODE=true
 
-    if [ -z "$NVIDIA_API_KEY" ]; then
-        echo "ERROR: NVIDIA_API_KEY required for --auto mode"
+    if [ -z "$NVIDIA_API_KEY_PROJECT_1" ]; then
+        echo "ERROR: NVIDIA_API_KEY_PROJECT_1 required for --auto mode"
         exit 1
     fi
 
@@ -950,6 +1523,7 @@ if [[ "${1:-}" == "--auto" ]]; then
     setup_systemd
     setup_tls
     setup_claude_code
+    setup_claude_settings
     setup_bashrc
     setup_wrapper
     setup_lan_hosting

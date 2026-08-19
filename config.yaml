@@ -1,99 +1,113 @@
 # config.yaml
+# ONE MODEL (Nemotron 3 Ultra) × 4 API KEYS = 4 deployments
+# Each model name maps to a specific API key for load isolation
+# All models use Nemotron 3 Ultra with thinking mode enabled (enable_thinking: true, reasoning_budget: 16384)
+
 litellm_settings:
   use_chat_completions_url_for_anthropic_messages: true
   num_retries: 3
   request_timeout: 3600
   master_key: os.environ/LITELLM_MASTER_KEY
-  # Health check endpoint
-  health_check_path: "/health"
+  drop_params: true
+  # On-demand memory optimizations
+  # Reduce connection pool sizes for intermittent use
+  max_parallel_requests: 8
+  # Disable caching during idle to reduce memory
+  cache: false
+  # Disable request/response logging to reduce memory
+  log_level: "WARNING"
 
 general_settings:
-  global_max_parallel_requests: 15
+  global_max_parallel_requests: 8
   request_timeout: 3600
   num_retries: 3
+  health_check_interval: 300  # ✅ FIXED: Moved here from router_settings
 
 router_settings:
   allowed_fails: 3
   retry_after: 5
   cooldown_time: 5
   routing_strategy: "least-busy"
-  default_max_parallel_requests: 15
-
-# Health check endpoint for LiteLLM
-health_check:
-  enabled: true
-  path: "/health"
-  port: 4001
+  default_max_parallel_requests: 8
+  # ✅ FIXED: health_check_interval removed from here
 
 model_list:
-  # 🧠 1. DEFAULT / OPUS 5 (1M context) → Nemotron 3 Ultra
+  # Model 1: Default / Opus (1M context) → PROJECT_1
   - model_name: claude-opus-5
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
-      api_key: os.environ/NVIDIA_API_KEY
+      api_key: os.environ/NVIDIA_API_KEY_PROJECT_1
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 10
+      rpm: 20
       tpm: 50000
-      max_parallel_requests: 5
+      max_parallel_requests: 8
       drop_params: true
+      # Nemotron 3 Ultra thinking mode
       extra_body:
         chat_template_kwargs:
           enable_thinking: true
         reasoning_budget: 16384
-      model_info:
-        mode: chat
+    model_info:
+      mode: chat
 
-  # 🧠 2. SONNET → Nemotron 3 Super
+  # Model 2: Sonnet → PROJECT_2
   - model_name: claude-sonnet-5
     litellm_params:
-      model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b
-      api_key: os.environ/NEMOTRON_SUPER_API_KEY
+      model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      api_key: os.environ/NVIDIA_API_KEY_PROJECT_2
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 10
+      rpm: 20
       tpm: 50000
-      max_parallel_requests: 5
+      max_parallel_requests: 8
       drop_params: true
+      # Nemotron 3 Ultra thinking mode
       extra_body:
         chat_template_kwargs:
           enable_thinking: true
         reasoning_budget: 16384
-      model_info:
-        mode: chat
+    model_info:
+      mode: chat
 
-  # 🧠 3. SONNET 5 (1M context) → Minimax M3
+  # Model 3: Sonnet 5 (1M context) → PROJECT_3
   - model_name: claude-sonnet-5-1m
     litellm_params:
-      model: nvidia_nim/minimaxai/minimax-m3
-      api_key: os.environ/MINIMAX_API_KEY
+      model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      api_key: os.environ/NVIDIA_API_KEY_PROJECT_3
       temperature: 1.0
       top_p: 0.95
-      max_tokens: 8192
-      rpm: 10
+      max_tokens: 16384
+      rpm: 20
       tpm: 50000
-      max_parallel_requests: 5
+      max_parallel_requests: 8
       drop_params: true
+      # Nemotron 3 Ultra thinking mode
       extra_body:
         chat_template_kwargs:
           enable_thinking: true
-        reasoning_budget: 8192
-      model_info:
-        mode: chat
+        reasoning_budget: 16384
+    model_info:
+      mode: chat
 
-  # 🧠 4. HAIKU → StepFun Step-3.7-Flash
+  # Model 4: Haiku → PROJECT_4
   - model_name: claude-haiku-4-5
     litellm_params:
-      model: nvidia_nim/stepfun-ai/step-3.7-flash
-      api_key: os.environ/STEPFUN_API_KEY
+      model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      api_key: os.environ/NVIDIA_API_KEY_PROJECT_4
       temperature: 1.0
       top_p: 0.95
-      max_tokens: 8192
-      rpm: 30
+      max_tokens: 16384
+      rpm: 20
       tpm: 50000
-      max_parallel_requests: 5
+      max_parallel_requests: 8
       drop_params: true
-      model_info:
-        mode: chat
+      # Nemotron 3 Ultra thinking mode
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: true
+        reasoning_budget: 16384
+    model_info:
+      mode: chat

@@ -93,6 +93,38 @@ curl http://192.168.1.42:4000/
 
 ---
 
+## HTTPS / TLS Setup (for LAN with encryption)
+
+If you enabled TLS during installation (or ran `sudo bash setup-tls.sh generate myserver.local true`):
+
+### Server (already done if TLS enabled):
+```bash
+# Certs generated with SAN for all LAN IPs
+# nginx already configured for HTTPS on port 4443
+sudo ufw allow 4443/tcp
+sudo systemctl reload nginx
+```
+
+### Client (any device) - use `-k` for self-signed cert:
+```bash
+export ANTHROPIC_BASE_URL="https://192.168.1.42:4443"
+export ANTHROPIC_API_KEY="sk-local-proxy-key"
+claude
+```
+
+### Or trust cert system-wide:
+```bash
+# On the client device:
+sudo cp /etc/ssl/myclaude/myclaude.crt /usr/local/share/ca-certificates/myclaude.crt
+sudo update-ca-certificates
+# Then connect without -k:
+export ANTHROPIC_BASE_URL="https://192.168.1.42:4443"
+export ANTHROPIC_API_KEY="sk-local-proxy-key"
+claude
+```
+
+---
+
 ## Security Notes
 
 - **Local network only** — MyClaude is NOT exposed to the internet by default
@@ -106,6 +138,21 @@ curl http://192.168.1.42:4000/
 
 ---
 
+## Model Configuration Note
+
+**All 4 Claude Code models use Nemotron 3 Ultra with different API keys for load isolation:**
+
+| Model in Claude Code | NVIDIA Backend | API Key |
+|---------------------|----------------|---------|
+| Default / Opus (1M) | Nemotron 3 Ultra | PROJECT_1 |
+| Sonnet | Nemotron 3 Ultra | PROJECT_2 |
+| Sonnet 5 (1M) | Nemotron 3 Ultra | PROJECT_3 |
+| Haiku | Nemotron 3 Ultra | PROJECT_4 |
+
+This provides **80 RPM combined** (20 RPM per key) with load isolation.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |
@@ -115,3 +162,4 @@ curl http://192.168.1.42:4000/
 | Timeout | Check firewall: `sudo ufw status` or `sudo firewall-cmd --list-ports` |
 | Can't reach from phone | Ensure both devices are on the same WiFi/router |
 | Nginx won't reload | Check config: `sudo nginx -t` |
+| TLS cert errors | Use `curl -k` or trust cert system-wide (see above) |

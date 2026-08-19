@@ -1,6 +1,7 @@
 #!/bin/bash
 # MyClaude Model Test Script
 # Tests all 4 configured models via the proxy
+# All models use Nemotron 3 Ultra with different API keys for load isolation
 
 set -euo pipefail
 
@@ -20,20 +21,20 @@ log_success() { echo -e "${GREEN}[PASS]${NC} $*"; }
 log_fail() { echo -e "${RED}[FAIL]${NC} $*"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
-# Models to test (model_name:expected_backend)
+# Models to test (model_name:api_key_project)
 declare -A MODELS=(
-    ["claude-opus-5"]="nvidia/nemotron-3-ultra-550b-a55b"
-    ["claude-sonnet-5"]="nvidia/nemotron-3-super-120b-a12b"
-    ["claude-sonnet-5-1m"]="minimaxai/minimax-m3"
-    ["claude-haiku-4-5"]="stepfun-ai/step-3.7-flash"
+    ["claude-opus-5"]="PROJECT_1"
+    ["claude-sonnet-5"]="PROJECT_2"
+    ["claude-sonnet-5-1m"]="PROJECT_3"
+    ["claude-haiku-4-5"]="PROJECT_4"
 )
 
 # Test a single model
 test_model() {
     local model="$1"
-    local expected_backend="${MODELS[$model]:-unknown}"
+    local project="${MODELS[$model]}"
 
-    echo -n "Testing $model ($expected_backend)... "
+    echo -n "Testing $model (Nemotron 3 Ultra, $project)... "
 
     local response
     response=$(curl -s --max-time "$TIMEOUT" \
@@ -112,7 +113,7 @@ test_litellm_health() {
 # Main
 main() {
     log_info "Testing MyClaude proxy at $PROXY_URL"
-    log_info "Testing ${#MODELS[@]} models..."
+    log_info "Testing ${#MODELS[@]} models (all Nemotron 3 Ultra with different API keys)..."
     echo ""
 
     local passed=0
@@ -136,7 +137,7 @@ main() {
     log_info "Results: $passed passed, $failed failed"
 
     if [ $failed -eq 0 ]; then
-        log_success "All models working!"
+        log_success "All models working! (Nemotron 3 Ultra with 4 independent API keys)"
         exit 0
     else
         log_fail "Some models failed"

@@ -12,30 +12,32 @@ MyClaude lets you run [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 git clone https://github.com/S-V-J/myclaude.git && cd myclaude && bash install.sh
 ```
 
-Or fully automated (requires `NVIDIA_API_KEY` env var):
+Or fully automated (requires `NVIDIA_API_KEY_PROJECT_1` env var):
 
 ```bash
-git clone https://github.com/S-V-J/myclaude.git && cd myclaude && NVIDIA_API_KEY="your-key" bash install.sh --auto
+git clone https://github.com/S-V-J/myclaude.git && cd myclaude && NVIDIA_API_KEY_PROJECT_1="your-key" bash install.sh --auto
 ```
 
 With TLS/SSL for LAN/production:
 
 ```bash
-ENABLE_TLS=true TLS_DOMAIN=myclaude.local NVIDIA_API_KEY="your-key" bash install.sh --auto
+ENABLE_TLS=true TLS_DOMAIN=myclaude.local NVIDIA_API_KEY_PROJECT_1="your-key" bash install.sh --auto
 ```
 
 ## 📊 Current Status: 100% Production-Ready
 
-All 4 models tested and working:
+**Single Model × 4 API Keys = 4 Deployments (Load Isolation)**
 
-| Claude Code Model | NVIDIA NIM Backend | API Key |
-|-------------------|-------------------|---------|
-| `claude-opus-5` (Default / Opus 1M) | `nvidia/nemotron-3-ultra-550b-a55b` | `NVIDIA_API_KEY` |
-| `claude-sonnet-5` (Sonnet) | `nvidia/nemotron-3-super-120b-a12b` | `NEMOTRON_SUPER_API_KEY` |
-| `claude-sonnet-5-1m` (Sonnet 1M) | `minimaxai/minimax-m3` | `MINIMAX_API_KEY` |
-| `claude-haiku-4-5` (Haiku) | `stepfun-ai/step-3.7-flash` | `STEPFUN_API_KEY` |
+All 4 Claude Code models route to **Nemotron 3 Ultra** with independent API keys for load balancing:
 
-> **Note:** Optional keys fall back to `NVIDIA_API_KEY` if not provided.
+| Claude Code Model | NVIDIA NIM Backend | API Key (Required) |
+|-------------------|-------------------|---------------------|
+| `claude-opus-5` (Default / Opus 1M) | `nvidia/nemotron-3-ultra-550b-a55b` | `NVIDIA_API_KEY_PROJECT_1` |
+| `claude-sonnet-5` (Sonnet) | `nvidia/nemotron-3-ultra-550b-a55b` | `NVIDIA_API_KEY_PROJECT_2` |
+| `claude-sonnet-5-1m` (Sonnet 1M) | `nvidia/nemotron-3-ultra-550b-a55b` | `NVIDIA_API_KEY_PROJECT_3` |
+| `claude-haiku-4-5` (Haiku) | `nvidia/nemotron-3-ultra-550b-a55b` | `NVIDIA_API_KEY_PROJECT_4` |
+
+> **Each model uses the same Nemotron 3 Ultra backend but with a dedicated API key for load isolation.** This provides **80 RPM combined** (20 RPM per key) while keeping the same model capabilities across all Claude Code model selections.
 
 ## ⚠️ Important: Bring Your Own NVIDIA API Keys
 
@@ -43,11 +45,11 @@ All 4 models tested and working:
 
 Get free API keys at: https://build.nvidia.com
 
-Each model backend may require a different API key:
-- **Nemotron 3 Ultra** (Opus) → `NVIDIA_API_KEY`
-- **Nemotron 3 Super** (Sonnet) → `NEMOTRON_SUPER_API_KEY` (optional, falls back to NVIDIA key)
-- **Minimax M3** (Sonnet 1M) → `MINIMAX_API_KEY` (optional, falls back to NVIDIA key)
-- **StepFun Step-3.7-Flash** (Haiku) → `STEPFUN_API_KEY` (optional, falls back to NVIDIA key)
+**Required:** `NVIDIA_API_KEY_PROJECT_1` (primary key for Opus/Default model)
+
+**Optional (for load isolation):** `NVIDIA_API_KEY_PROJECT_2`, `NVIDIA_API_KEY_PROJECT_3`, `NVIDIA_API_KEY_PROJECT_4`
+
+If optional keys are not provided, they fall back to `NVIDIA_API_KEY_PROJECT_1`.
 
 ## How It Works
 
@@ -65,18 +67,15 @@ flowchart LR
 
     subgraph NVIDIA["NVIDIA NIM Cloud"]
         direction TB
-        NM["Nemotron 3 Ultra\nnvidia/nemotron-3-ultra-550b-a55b"]
-        NS["Nemotron 3 Super\nnvidia/nemotron-3-super-120b-a12b"]
-        MM["Minimax M3\nminimaxai/minimax-m3"]
-        SM["StepFun Step-3.7-Flash\nstepfun-ai/step-3.7-flash"]
+        NM["Nemotron 3 Ultra\nnvidia/nemotron-3-ultra-550b-a55b\n(4 Independent API Keys)"]
     end
 
     CC -->|Anthropic Messages API\nhttp://localhost:4000\nor https://localhost:4443| NX
     NX -->|HTTP/1.1 + WebSocket\nRate limited| LL
     LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
-    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NS
-    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| MM
-    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| SM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
+    LL -->|OpenAI Chat Completions\n+ NVIDIA headers| NM
 
     classDef client fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
     classDef proxy fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
@@ -84,7 +83,7 @@ flowchart LR
 
     class CC client
     class NX,LL proxy
-    class NM,NS,MM,SM nvidia
+    class NM nvidia
 ```
 
 ### Request Flow
@@ -107,23 +106,20 @@ flowchart TB
         CH45["claude-haiku-4-5\n(Haiku)"]
     end
 
-    subgraph NVIDIA["NVIDIA NIM Backends"]
-        NEMO["Nemotron 3 Ultra\nReasoning · 1M context"]
-        NEMOS["Nemotron 3 Super\nReasoning · Fast"]
-        MINI["Minimax M3\n1M context"]
-        STEP["StepFun Step-3.7-Flash\nReasoning · Fast"]
+    subgraph NVIDIA["NVIDIA NIM Backend"]
+        NEMO["Nemotron 3 Ultra\nnvidia/nemotron-3-ultra-550b-a55b\nReasoning · 1M Context"]
     end
 
-    CO5 -->|NVIDIA_API_KEY| NEMO
-    CS5 -->|NEMOTRON_SUPER_API_KEY| NEMOS
-    CS51M -->|MINIMAX_API_KEY| MINI
-    CH45 -->|STEPFUN_API_KEY| STEP
+    CO5 -->|PROJECT_1 API Key| NEMO
+    CS5 -->|PROJECT_2 API Key| NEMO
+    CS51M -->|PROJECT_3 API Key| NEMO
+    CH45 -->|PROJECT_4 API Key| NEMO
 
     classDef claude fill:#1a1a2e,stroke:#00d4ff,stroke-width:2px,color:#fff
     classDef nvidia fill:#0f0f23,stroke:#76b900,stroke-width:2px,color:#fff
 
     class CO5,CS5,CS51M,CH45 claude
-    class NEMO,NEMOS,MINI,STEP nvidia
+    class NEMO nvidia
 ```
 
 ## Why This Approach
@@ -131,7 +127,8 @@ flowchart TB
 - **No Anthropic API subscription needed** — uses NVIDIA NIM credits
 - **Drop-in replacement** — Claude Code works unmodified, just pointed at a different URL
 - **Rate limit protection** — nginx queues burst traffic; LiteLLM retries with backoff
-- **Model routing** — different Claude models map to different NVIDIA backends automatically
+- **Load isolation** — 4 independent API keys provide 80 RPM combined (20 RPM each)
+- **Single model simplicity** — All Claude models map to Nemotron 3 Ultra with thinking mode enabled
 - **Local-first** — everything runs on your machine, keys never leave your control
 - **Production-ready** — TLS, log rotation, health checks, dedicated service user
 
@@ -161,10 +158,10 @@ flowchart TB
     Start([Start Installer]) --> Step1
     
     subgraph Step1["Step 1: API Keys (up to 4)"]
-        K1["Key 1: Primary NVIDIA (Required)\nURL: integrate.api.nvidia.com/v1\nModels: nemotron-3-ultra, nemotron-3-super, llama-3.1-nemotron"]
-        K2["Key 2: Nemotron Super (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: nemotron-3-super"]
-        K3["Key 3: Minimax (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: minimax-m3, minimax-m1"]
-        K4["Key 4: StepFun (Optional)\nURL: integrate.api.nvidia.com/v1\nModels: step-3.7-flash, step-3.7-mini"]
+        K1["Key 1: Primary NVIDIA (Required)\nURL: integrate.api.nvidia.com/v1\nModel: nemotron-3-ultra-550b-a55b"]
+        K2["Key 2: Nemotron Ultra (Optional)\nURL: integrate.api.nvidia.com/v1\nModel: nemotron-3-ultra-550b-a55b"]
+        K3["Key 3: Nemotron Ultra (Optional)\nURL: integrate.api.nvidia.com/v1\nModel: nemotron-3-ultra-550b-a55b"]
+        K4["Key 4: Nemotron Ultra (Optional)\nURL: integrate.api.nvidia.com/v1\nModel: nemotron-3-ultra-550b-a55b"]
         
         FetchModels[["Fetch Models from /v1/models"]]
         ValidateKeys[["Validate All Keys"]]
@@ -174,21 +171,18 @@ flowchart TB
     FetchModels --> ValidateKeys
     ValidateKeys --> Step2
     
-    subgraph Step2["Step 2: Model Mapping"]
+    subgraph Step2["Step 2: Model Mapping (All Nemotron 3 Ultra)"]
         M1["claude-opus-5 (Default/Opus 1M)\nKey 1: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
-        M2["claude-sonnet-5 (Sonnet)\nKey 2: nemotron-3-super-120b-a12b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
-        M3["claude-sonnet-5-1m (Sonnet 1M)\nKey 3: minimax-m3\nParams: temp=1.0, top_p=0.95, max_tokens=8192\nExtra: enable_thinking, reasoning_budget=8192"]
-        M4["claude-haiku-4-5 (Haiku)\nKey 4: step-3.7-flash\nParams: temp=1.0, top_p=0.95, max_tokens=8192"]
-        
-        Flexible["Flexible Mapping\n1 Key to 1 Model (dedicated)\n1 Key to 4 Models (shared)\n2 Keys to 4 Models (mixed)\nAny combination"]
+        M2["claude-sonnet-5 (Sonnet)\nKey 2: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
+        M3["claude-sonnet-5-1m (Sonnet 1M)\nKey 3: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
+        M4["claude-haiku-4-5 (Haiku)\nKey 4: nemotron-3-ultra-550b-a55b\nParams: temp=1.0, top_p=0.95, max_tokens=16384\nExtra: enable_thinking, reasoning_budget=16384"]
         
         ValidateMappings[["Validate All Mappings"]]
         TestModels[["Test Each Model"]]
     end
     
     Step2 --> M1 & M2 & M3 & M4
-    M1 & M2 & M3 & M4 --> Flexible
-    Flexible --> ValidateMappings
+    M1 & M2 & M3 & M4 --> ValidateMappings
     ValidateMappings --> TestModels
     TestModels --> Step3
     
@@ -235,7 +229,7 @@ flowchart TB
 
 | Feature | Description |
 |---------|-------------|
-| **Up to 4 API Keys** | Configure multiple NVIDIA keys for different model providers |
+| **Up to 4 API Keys** | Configure multiple NVIDIA keys for Nemotron 3 Ultra load isolation |
 | **Service Provider URL** | Select or enter custom base URLs (default: NVIDIA integrate API) |
 | **Model Discovery** | Click "Fetch Models" to auto-populate available models per key |
 | **Flexible Mapping** | Map any key→model combination (1:1, 1:many, many:1) |
@@ -248,22 +242,22 @@ flowchart TB
 
 ```bash
 # With just the primary key (other keys fall back to it)
-NVIDIA_API_KEY="your-key" bash install.sh --auto
+NVIDIA_API_KEY_PROJECT_1="your-key" bash install.sh --auto
 
-# With all keys
-NVIDIA_API_KEY="..." NEMOTRON_SUPER_API_KEY="..." MINIMAX_API_KEY="..." STEPFUN_API_KEY="..." bash install.sh --auto
+# With all keys for full load isolation (80 RPM combined)
+NVIDIA_API_KEY_PROJECT_1="..." NVIDIA_API_KEY_PROJECT_2="..." NVIDIA_API_KEY_PROJECT_3="..." NVIDIA_API_KEY_PROJECT_4="..." bash install.sh --auto
 
 # With TLS/SSL for LAN/production
-ENABLE_TLS=true TLS_DOMAIN=myclaude.local TLS_ENABLE_HTTP=true NVIDIA_API_KEY="..." bash install.sh --auto
+ENABLE_TLS=true TLS_DOMAIN=myclaude.local TLS_ENABLE_HTTP=true NVIDIA_API_KEY_PROJECT_1="..." bash install.sh --auto
 ```
 
 **Auto-mode Environment Variables:**
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NVIDIA_API_KEY` | *required* | Primary NVIDIA NIM API key |
-| `NEMOTRON_SUPER_API_KEY` | (fallback) | Nemotron 3 Super key |
-| `MINIMAX_API_KEY` | (fallback) | Minimax M3 key |
-| `STEPFUN_API_KEY` | (fallback) | StepFun Step-3.7-Flash key |
+| `NVIDIA_API_KEY_PROJECT_1` | *required* | Primary NVIDIA NIM API key (Opus/Default) |
+| `NVIDIA_API_KEY_PROJECT_2` | (fallback to PROJECT_1) | Nemotron Ultra key for Sonnet |
+| `NVIDIA_API_KEY_PROJECT_3` | (fallback to PROJECT_1) | Nemotron Ultra key for Sonnet 1M |
+| `NVIDIA_API_KEY_PROJECT_4` | (fallback to PROJECT_1) | Nemotron Ultra key for Haiku |
 | `ENABLE_LAN` | `false` | Bind nginx to 0.0.0.0:4000 |
 | `ENABLE_TLS` | `false` | Enable HTTPS on port 4443 |
 | `TLS_DOMAIN` | `localhost` | Domain for TLS certificate |
@@ -276,7 +270,7 @@ ENABLE_TLS=true TLS_DOMAIN=myclaude.local TLS_ENABLE_HTTP=true NVIDIA_API_KEY=".
 
 ```bash
 make install       # Runs install.sh (interactive)
-make install-auto  # Runs install.sh --auto (needs NVIDIA_API_KEY env)
+make install-auto  # Runs install.sh --auto (needs NVIDIA_API_KEY_PROJECT_1 env)
 make status        # Check service status
 make logs          # Tail service logs
 make restart       # Restart service
@@ -330,12 +324,12 @@ Switch between Claude models. Your pick becomes the default for new sessions.
 
   1. Default (recommended)  : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
 ❯ 2. Opus (1M context) ✔    : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
-  3. Sonnet                 : proxy ai model nvidia/nemotron-3-super-120b-a12b
-  4. Sonnet 5 (1M context)  : proxy ai model minimaxai/minimax-m3
-  5. Haiku                  : proxy ai model stepfun-ai/step-3.7-flash
+  3. Sonnet                 : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
+  4. Sonnet 5 (1M context)  : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
+  5. Haiku                  : proxy ai model nvidia/nemotron-3-ultra-550b-a55b
 ```
 
-Your selection persists across sessions via Claude Code's config.
+All models use **Nemotron 3 Ultra** with different API keys for load isolation. Your selection persists across sessions via Claude Code's config.
 
 ### Service Management
 
@@ -376,12 +370,12 @@ myclaude-stop    # sudo systemctl stop myclaude
 
 ```env
 # Required — Primary NVIDIA NIM key (get at build.nvidia.com)
-NVIDIA_API_KEY="nvapi-..."
+NVIDIA_API_KEY_PROJECT_1="nvapi-..."
 
-# Optional — Separate keys for specific model providers (fallback to NVIDIA_API_KEY)
-NEMOTRON_SUPER_API_KEY="nvapi-..."
-MINIMAX_API_KEY="nvapi-..."
-STEPFUN_API_KEY="nvapi-..."
+# Optional — Separate keys for load isolation (fallback to PROJECT_1)
+NVIDIA_API_KEY_PROJECT_2="nvapi-..."
+NVIDIA_API_KEY_PROJECT_3="nvapi-..."
+NVIDIA_API_KEY_PROJECT_4="nvapi-..."
 
 # Auto-generated — local proxy auth key (used by Claude Code)
 LITELLM_MASTER_KEY="sk-local-..."
@@ -396,9 +390,9 @@ Key settings (managed by TUI installer):
 - **Routing strategy**: `least-busy` — picks the model with fewest active requests
 - **Fallbacks**: `claude-opus-5` → `claude-sonnet-5` on failure
 - **Retries**: 5 attempts, 5s cooldown between retries
-- **Parallel limits**: 15 max concurrent (stays safely under NVIDIA's 20 RPM tier)
+- **Parallel limits**: 8 max concurrent per model (stays safely under NVIDIA's 20 RPM tier per key)
 - **Timeouts**: 3600s request timeout for long-running tasks
-- **Thinking mode**: Enabled for Nemotron models via `extra_body`
+- **Thinking mode**: Enabled for Nemotron models via `extra_body` (`enable_thinking: true`, `reasoning_budget: 16384`)
 - **Health check**: Enabled at `/health` on port 4001
 
 ### TLS/SSL (`setup-tls.sh`)
@@ -516,10 +510,10 @@ Output:
 Testing nginx health endpoint... [PASS] nginx /health OK
 Testing LiteLLM health endpoint... [PASS] LiteLLM /health OK
 
-Testing claude-opus-5 (nvidia/nemotron-3-ultra-550b-a55b)... [PASS] Response: Hello!
-Testing claude-sonnet-5 (nvidia/nemotron-3-super-120b-a12b)... [PASS] Response: Hi!
-Testing claude-sonnet-5-1m (minimaxai/minimax-m3)... [PASS] Response: Hey!
-Testing claude-haiku-4-5 (stepfun-ai/step-3.7-flash)... [PASS] Response: Hello!
+Testing claude-opus-5 (nemotron-3-ultra-550b-a55b, PROJECT_1)... [PASS] Response: Hello!
+Testing claude-sonnet-5 (nemotron-3-ultra-550b-a55b, PROJECT_2)... [PASS] Response: Hi!
+Testing claude-sonnet-5-1m (nemotron-3-ultra-550b-a55b, PROJECT_3)... [PASS] Response: Hey!
+Testing claude-haiku-4-5 (nemotron-3-ultra-550b-a55b, PROJECT_4)... [PASS] Response: Hello!
 
 [INFO] Results: 4 passed, 0 failed
 [PASS] All models working!

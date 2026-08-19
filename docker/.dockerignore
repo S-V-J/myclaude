@@ -1,0 +1,63 @@
+# Git
+.git
+.gitignore
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+litellm.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+Dockerfile*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Test
+test-results/
+coverage/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Certificates (sensitive)
+certs/
+*.pem
+*.key
+*.crt
+
+# Database
+litellm.db
+*.sqlite
+*.db

@@ -92,28 +92,51 @@ server {
     listen 4000;
     server_name $domain;
 
+    # Security headers
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # Request/response size limits
+    client_max_body_size 50M;
+    client_body_buffer_size 64k;
+    client_header_buffer_size 512;
+    large_client_header_buffers 4 8k;
+
+    # Timeouts
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+    send_timeout 3600s;
+
     # Rate limiting
     limit_req zone=myclaude burst=32 nodelay;
     limit_req_status 503;
+    limit_req_log_level warn;
 
 $(if [ "$enable_http" = "true" ]; then cat <<'HTTPEOF'
     location / {
-        proxy_pass http://127.0.0.1:4001;
+        proxy_pass http://litellm_backend;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Port \$server_port;
 
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection "";
 
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 300s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 3600s;
         proxy_read_timeout 3600s;
 
         proxy_buffering off;
         proxy_request_buffering off;
+
+        proxy_pass_header Server;
+        proxy_pass_header Date;
+        proxy_hide_header X-Powered-By;
     }
 HTTPEOF
 else cat <<'HTTPSEOF'
@@ -127,12 +150,35 @@ HTTPSEOF
         access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
+        add_header Cache-Control "no-store";
+    }
+
+    location = /health/litellm {
+        access_log off;
+        proxy_pass http://litellm_backend/health;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+    }
+
+    location = /metrics {
+        allow 127.0.0.1;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+        proxy_pass http://litellm_backend/metrics;
+    }
+
+    location ~ ^/(admin|config|models|keys) {
+        deny all;
+        return 404;
     }
 }
 
 # HTTPS server (port 4443)
 server {
     listen 4443 ssl http2;
+    listen [::]:4443 ssl http2;
     server_name $domain;
 
     ssl_certificate $CERT_DIR/myclaude.crt;
@@ -144,34 +190,84 @@ server {
     ssl_prefer_server_ciphers off;
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    # OCSP Stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 1.1.1.1 8.8.8.8 valid=300s;
+    resolver_timeout 5s;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    client_max_body_size 50M;
+    client_body_buffer_size 64k;
+    client_header_buffer_size 512;
+    large_client_header_buffers 4 8k;
+
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+    send_timeout 3600s;
 
     # Rate limiting
     limit_req zone=myclaude burst=32 nodelay;
     limit_req_status 503;
+    limit_req_log_level warn;
 
     location / {
-        proxy_pass http://127.0.0.1:4001;
+        proxy_pass http://litellm_backend;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Port \$server_port;
 
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection "";
 
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 300s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 3600s;
         proxy_read_timeout 3600s;
 
         proxy_buffering off;
         proxy_request_buffering off;
+
+        proxy_pass_header Server;
+        proxy_pass_header Date;
+        proxy_hide_header X-Powered-By;
     }
 
     location /health {
         access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
+    }
+
+    location = /health/litellm {
+        access_log off;
+        proxy_pass http://litellm_backend/health;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+    }
+
+    location = /metrics {
+        allow 127.0.0.1;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+        proxy_pass http://litellm_backend/metrics;
+    }
+
+    location ~ ^/(admin|config|models|keys) {
+        deny all;
+        return 404;
     }
 }
 NGINXEOF
@@ -241,42 +337,92 @@ disable_tls() {
     log_info "Disabling TLS, restoring HTTP-only configuration..."
 
     sudo tee "$NGINX_CONF" > /dev/null <<'NGINXEOF'
-# MyClaude nginx reverse proxy with request queuing
-# Limits: 16 req/s sustained, burst 32
-# This file will be installed to /etc/nginx/sites-enabled/myclaude
-# The limit_req_zone must be defined in http context (nginx.conf)
+# MyClaude nginx reverse proxy — Production Grade (On-Demand Optimized)
+
+upstream litellm_backend {
+    server 127.0.0.1:4001 max_fails=3 fail_timeout=30s;
+    keepalive 32;
+    keepalive_requests 1000;
+    keepalive_timeout 60s;
+}
 
 server {
     listen 4000;
-    server_name localhost;
+    listen [::]:4000;
+    server_name localhost _;
 
-    # Rate limiting (requires limit_req_zone in nginx.conf http block)
+    # Security headers
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # Request/response size limits
+    client_max_body_size 50M;
+    client_body_buffer_size 64k;
+    client_header_buffer_size 512;
+    large_client_header_buffers 4 8k;
+
+    # Timeouts
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+    send_timeout 3600s;
+
+    # Rate limiting
     limit_req zone=myclaude burst=32 nodelay;
     limit_req_status 503;
+    limit_req_log_level warn;
 
     location / {
-        proxy_pass http://127.0.0.1:4001;
+        proxy_pass http://litellm_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
 
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection "";
 
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 300s;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 3600s;
         proxy_read_timeout 3600s;
 
         proxy_buffering off;
         proxy_request_buffering off;
+
+        proxy_pass_header Server;
+        proxy_pass_header Date;
+        proxy_hide_header X-Powered-By;
     }
 
     location /health {
         access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
+        add_header Cache-Control "no-store";
+    }
+
+    location = /health/litellm {
+        access_log off;
+        proxy_pass http://litellm_backend/health;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+    }
+
+    location = /metrics {
+        allow 127.0.0.1;
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+        proxy_pass http://litellm_backend/metrics;
+    }
+
+    location ~ ^/(admin|config|models|keys) {
+        deny all;
+        return 404;
     }
 }
 NGINXEOF

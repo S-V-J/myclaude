@@ -11,9 +11,9 @@ install:
 	@bash install.sh
 
 # Full automated install — delegates to install.sh --auto
-# Requires NVIDIA_API_KEY environment variable
+# Requires NVIDIA_API_KEY_PROJECT_1 environment variable
 install-auto:
-	@if [ -z "$$NVIDIA_API_KEY" ]; then echo "ERROR: NVIDIA_API_KEY required. Usage: make install-auto NVIDIA_API_KEY=..."; exit 1; fi
+	@if [ -z "$$NVIDIA_API_KEY_PROJECT_1" ]; then echo "ERROR: NVIDIA_API_KEY_PROJECT_1 required. Usage: make install-auto NVIDIA_API_KEY_PROJECT_1=..."; exit 1; fi
 	@bash install.sh --auto
 
 # Service management
@@ -40,7 +40,7 @@ start:
 test:
 	@bash test-models.sh
 
-# Full cleanup (removes service, nginx config, user, venv, wrapper)
+# Full cleanup (removes service, nginx config, user, venv, config)
 clean:
 	@echo "Cleaning up MyClaude..."
 	@sudo systemctl stop myclaude 2>/dev/null || true
@@ -62,13 +62,13 @@ help:
 	@echo "MyClaude Makefile targets:"
 	@echo ""
 	@echo "  make install       - Run full interactive installer (bash install.sh)"
-	@echo "  make install-auto  - Run automated installer (needs NVIDIA_API_KEY env)"
+	@echo "  make install-auto  - Run automated installer (needs NVIDIA_API_KEY_PROJECT_1 env)"
 	@echo "  make status        - Show myclaude service status"
 	@echo "  make logs          - Tail myclaude service logs"
 	@echo "  make restart       - Restart myclaude service"
 	@echo "  make stop          - Stop myclaude service"
 	@echo "  make start         - Start myclaude service"
-	@echo "  make test          - Test all 4 models"
+	@echo "  make test          - Test all 4 models (Nemotron 3 Ultra with 4 API keys)"
 	@echo "  make clean         - Remove everything (service, user, venv, config)"
 	@echo "  make reinstall     - Clean then install"
 	@echo "  make help          - Show this help"
