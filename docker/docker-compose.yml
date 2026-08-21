@@ -7,8 +7,8 @@ services:
       dockerfile: docker/Dockerfile
     container_name: myclaude
     ports:
-      - "4000:4000"   # nginx proxy
-      - "4001:4001"   # LiteLLM backend
+      - "4000:4000"   # nginx proxy (main entry point)
+      - "4001:4001"   # LiteLLM backend (internal, not needed for external access)
     environment:
       # Required: NVIDIA API Keys (at least PROJECT_1)
       - NVIDIA_API_KEY_PROJECT_1
@@ -16,13 +16,13 @@ services:
       - NVIDIA_API_KEY_PROJECT_3
       - NVIDIA_API_KEY_PROJECT_4
 
-      # Optional: LiteLLM master key
+      # Optional: LiteLLM master key (auto-generated if not provided)
       - LITELLM_MASTER_KEY
 
       # On-demand configuration
       - MYCLAUDE_IDLE_TIMEOUT=300  # 5 minutes default
 
-      # Resource limits (adjust as needed)
+      # Resource limits
       - MEMORY_LIMIT=2g
       - CPU_LIMIT=2.0
 
@@ -45,7 +45,7 @@ services:
           memory: 512m
           cpus: '0.5'
 
-    # Restart policy for on-demand (don't auto-restart on stop)
+    # Restart policy for on-demand (don't auto-restart on stop - let entrypoint handle it)
     restart: "no"
 
     # Health check

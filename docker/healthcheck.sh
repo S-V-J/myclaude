@@ -1,14 +1,17 @@
 #!/bin/bash
-# Health check for MyClaude Docker container
+# MyClaude Docker Health Check
+# Checks both nginx and LiteLLM health endpoints
 
-# Check nginx health endpoint (full proxy stack)
-if curl -s --max-time 2 -f "http://localhost:4000/health" >/dev/null 2>&1; then
-    exit 0
+set -euo pipefail
+
+# Check nginx health (port 4000)
+if ! curl -s --max-time 2 -f "http://localhost:4000/health" >/dev/null 2>&1; then
+    exit 1
 fi
 
-# Fallback: check if LiteLLM is directly responsive
-if curl -s --max-time 2 -f "http://localhost:4001/health" >/dev/null 2>&1; then
-    exit 0
+# Check LiteLLM health through nginx (port 4000/health/litellm)
+if ! curl -s --max-time 2 -f "http://localhost:4000/health/litellm" >/dev/null 2>&1; then
+    exit 1
 fi
 
-exit 1
+exit 0
