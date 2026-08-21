@@ -1,15 +1,16 @@
 # MyClaude logrotate configuration
 # Install: sudo cp logrotate-myclaude /etc/logrotate.d/myclaude
+# Note: Paths will be replaced at install time with actual REPO_DIR
 
 # LiteLLM application logs
-/home/ML/myclaude/litellm.log {
+__REPO_DIR__/litellm.log {
     daily
     rotate 14
     compress
     delaycompress
     missingok
     notifempty
-    create 640 myclaude myclaude
+    create 640 __SERVICE_USER__ __SERVICE_USER__
     sharedscripts
     postrotate
         systemctl reload myclaude > /dev/null 2>&1 || true

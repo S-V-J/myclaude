@@ -29,8 +29,6 @@ SERVICE_NAME="myclaude"
 NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 VENV_DIR="$REPO_DIR/venv"
 SERVICE_USER="myclaude"
-CLAUDE_SETTINGS_DIR="$HOME/.claude"
-CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_DIR/settings.json"
 
 # Detect OS and package manager
 detect_os() {
@@ -332,7 +330,7 @@ install_system_packages() {
 # STEP 1: API Keys (TUI)
 # ============================================================
 step1_api_keys() {
-    ui_msgbox "Step 1 of 4: API Keys\n\nYou need at least one NVIDIA NIM API key.\nGet free keys at: https://build.nvidia.com\n\nAll models use Nemotron 3 Ultra. You can configure up to 4 keys for load isolation (80 RPM combined)."
+    ui_msgbox "Step 1 of 4: API Keys\n\nYou need at least one NVIDIA NIM API key.\nGet free keys at: https://build.nvidia.com\n\nAll 4 models use Nemotron 3 Ultra. You can configure up to 4 keys for load isolation (80 RPM combined)."
 
     # Key 1 - Required
     while true; do
@@ -596,24 +594,25 @@ run_installation() {
 
 write_env_file() {
     LOCAL_KEY="sk-local-$(openssl rand -hex 16 2>/dev/null || echo "proxykey$(date +%s)")"
+
+    # Optional keys - fallback to PROJECT_1 if not provided
+    NVIDIA_API_KEY_PROJECT_2="${NVIDIA_API_KEY_PROJECT_2:-$NVIDIA_API_KEY_PROJECT_1}"
+    NVIDIA_API_KEY_PROJECT_3="${NVIDIA_API_KEY_PROJECT_3:-$NVIDIA_API_KEY_PROJECT_1}"
+    NVIDIA_API_KEY_PROJECT_4="${NVIDIA_API_KEY_PROJECT_4:-$NVIDIA_API_KEY_PROJECT_1}"
+
     cat > "$REPO_DIR/.env" <<ENVEOF
 # MyClaude Environment Configuration
-NVIDIA_API_KEY_PROJECT_1="$NVIDIA_API_KEY_PROJECT_1"
-ENVEOF
-    if [ -n "${NVIDIA_API_KEY_PROJECT_2:-}" ]; then
-        echo "NVIDIA_API_KEY_PROJECT_2=\"$NVIDIA_API_KEY_PROJECT_2\"" >> "$REPO_DIR/.env"
-    fi
-    if [ -n "${NVIDIA_API_KEY_PROJECT_3:-}" ]; then
-        echo "NVIDIA_API_KEY_PROJECT_3=\"$NVIDIA_API_KEY_PROJECT_3\"" >> "$REPO_DIR/.env"
-    fi
-    if [ -n "${NVIDIA_API_KEY_PROJECT_4:-}" ]; then
-        echo "NVIDIA_API_KEY_PROJECT_4=\"$NVIDIA_API_KEY_PROJECT_4\"" >> "$REPO_DIR/.env"
-    fi
-    echo "LITELLM_MASTER_KEY=\"$LOCAL_KEY\"" >> "$REPO_DIR/.env"
-    echo "LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=\"true\"" >> "$REPO_DIR/.env"
+# 4 API keys for Nemotron 3 Ultra (20 RPM each = ~80 RPM total combined)
+# PROJECT_2-4 fall back to PROJECT_1 if not provided
 
-    # On-demand configuration
-    echo "MYCLAUDE_IDLE_TIMEOUT=300" >> "$REPO_DIR/.env"
+NVIDIA_API_KEY_PROJECT_1="$NVIDIA_API_KEY_PROJECT_1"
+NVIDIA_API_KEY_PROJECT_2="$NVIDIA_API_KEY_PROJECT_2"
+NVIDIA_API_KEY_PROJECT_3="$NVIDIA_API_KEY_PROJECT_3"
+NVIDIA_API_KEY_PROJECT_4="$NVIDIA_API_KEY_PROJECT_4"
+
+LITELLM_MASTER_KEY="$LOCAL_KEY"
+LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="true"
+ENVEOF
 }
 
 setup_system_user() {
@@ -691,24 +690,6 @@ setup_nginx() {
         sudo sed -i "s|burst=32|burst=${NGINX_BURST}|g" "$NGINX_CONF"
     fi
 
-    # On-demand optimizations: reduce worker processes and buffer sizes
-    # These settings are applied when on-demand mode is detected (MYCLAUDE_IDLE_TIMEOUT > 0)
-    if ! grep -q "worker_processes 1;" /etc/nginx/nginx.conf 2>/dev/null; then
-        # Check if we should optimize for on-demand
-        if [ -f "$REPO_DIR/.env" ] && grep -q "MYCLAUDE_IDLE_TIMEOUT" "$REPO_DIR/.env"; then
-            local idle_timeout
-            idle_timeout=$(grep "MYCLAUDE_IDLE_TIMEOUT" "$REPO_DIR/.env" | cut -d= -f2)
-            if [ "$idle_timeout" -gt 0 ] 2>/dev/null; then
-                log_info "Applying on-demand nginx optimizations (worker_processes=1)..."
-                sudo sed -i 's/^worker_processes auto;/worker_processes 1;/' /etc/nginx/nginx.conf
-                # Also add smaller buffer settings if not present
-                if ! grep -q "client_body_buffer_size 64k;" /etc/nginx/nginx.conf 2>/dev/null; then
-                    sudo sed -i '/http {/a\    client_body_buffer_size 64k;\n    client_header_buffer_size 512;\n    keepalive_timeout 30s;' /etc/nginx/nginx.conf
-                fi
-            fi
-        fi
-    fi
-
     if sudo nginx -t 2>&1 | grep -q "successful"; then
         sudo systemctl reload nginx
     else
@@ -719,9 +700,13 @@ setup_nginx() {
 
 setup_logrotate() {
     if [ -f "$REPO_DIR/logrotate-myclaude" ]; then
-        sudo cp "$REPO_DIR/logrotate-myclaude" /etc/logrotate.d/myclaude
-        # Update paths in logrotate config to match actual repo directory
-        sudo sed -i "s|/home/ML/myclaude|$REPO_DIR|g" /etc/logrotate.d/myclaude
+        local logrotate_conf
+        logrotate_conf=$(mktemp)
+        sed -e "s|__REPO_DIR__|$REPO_DIR|g" \
+            -e "s|__SERVICE_USER__|$SERVICE_USER|g" \
+            "$REPO_DIR/logrotate-myclaude" > "$logrotate_conf"
+        sudo cp "$logrotate_conf" /etc/logrotate.d/myclaude
+        rm -f "$logrotate_conf"
         # Ensure log file exists with correct permissions
         sudo touch "$REPO_DIR/litellm.log"
         sudo chown "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR/litellm.log"
@@ -755,52 +740,33 @@ setup_systemd() {
 
 setup_claude_code() {
     if command -v claude &>/dev/null; then
-        log_info "Claude Code already installed: $(claude --version 2>/dev/null || echo 'unknown version')"
         return 0
     fi
 
     if [ "$USE_TUI" = true ]; then
-        if ! ui_yesno "Claude Code not found. Install now via npm?"; then
-            log_warn "Skipping Claude Code installation. You'll need to install it manually: npm install -g @anthropic-ai/claude-code"
+        if ! ui_yesno "Claude Code not found. Install now?"; then
             return 0
         fi
     else
-        log_info "Claude Code not found, installing via npm..."
+        echo "Claude Code not found, installing..."
     fi
 
     if command -v npm &>/dev/null; then
-        log_info "Installing Claude Code via npm..."
         npm install -g @anthropic-ai/claude-code
-        log_success "Claude Code installed successfully"
     else
         if [ "$USE_TUI" = true ]; then
-            ui_msgbox "npm not found. Please install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
+            ui_msgbox "npm not found. Install Node.js first, then run:\nnpm install -g @anthropic-ai/claude-code"
         else
-            log_error "npm not found. Please install Node.js and run: npm install -g @anthropic-ai/claude-code"
+            echo "npm not found. Please install Node.js and run: npm install -g @anthropic-ai/claude-code"
         fi
-        return 1
-    fi
-}
-
-setup_bashrc() {
-    local bashrc="$HOME/.bashrc"
-    local marker="# >>> MyClaude >>>"
-
-    if ! grep -qF "$marker" "$bashrc" 2>/dev/null; then
-        cat >> "$bashrc" <<'BASHEOF'
-
-# >>> MyClaude >>>
-alias myclaude-start='sudo systemctl start myclaude'
-alias myclaude-stop='sudo systemctl stop myclaude'
-alias myclaude-status='sudo systemctl status myclaude'
-alias myclaude-logs='journalctl -u myclaude -f'
-# <<< MyClaude <<<
-BASHEOF
     fi
 }
 
 setup_claude_settings() {
     log_info "Setting up ~/.claude/settings.json..."
+
+    local CLAUDE_SETTINGS_DIR="$HOME/.claude"
+    local CLAUDE_SETTINGS_FILE="$CLAUDE_SETTINGS_DIR/settings.json"
 
     mkdir -p "$CLAUDE_SETTINGS_DIR"
 
@@ -1100,276 +1066,27 @@ SETTINGSEOF
     log_info "Includes: Auto-compact, thinking enabled, Opus 1M model"
 }
 
+setup_bashrc() {
+    local bashrc="$HOME/.bashrc"
+    local marker="# >>> MyClaude >>>"
+
+    if ! grep -qF "$marker" "$bashrc" 2>/dev/null; then
+        cat >> "$bashrc" <<'BASHEOF'
+
+# >>> MyClaude >>>
+alias myclaude-start='sudo systemctl start myclaude'
+alias myclaude-stop='sudo systemctl stop myclaude'
+alias myclaude-status='sudo systemctl status myclaude'
+alias myclaude-logs='journalctl -u myclaude -f'
+# <<< MyClaude <<<
+BASHEOF
+    fi
+}
+
 setup_wrapper() {
-    cat > /tmp/myclaude_wrapper <<'WRAPEOF'
-#!/bin/bash
-# myclaude wrapper — launches Claude Code through the LiteLLM proxy
-# Installed to /usr/local/bin/myclaude by install.sh
-# Supports on-demand activation with idle shutdown
-
-set -euo pipefail
-
-SERVICE_NAME="myclaude"
-NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
-
-# On-demand configuration (can be overridden via environment)
-IDLE_TIMEOUT="${MYCLAUDE_IDLE_TIMEOUT:-300}"  # 5 minutes default
-LOCK_FILE="/tmp/myclaude.lock"
-STATE_DIR="/tmp/myclaude"
-ACTIVITY_FILE="${STATE_DIR}/last_activity"
-MONITOR_PID_FILE="${STATE_DIR}/monitor.pid"
-STARTUP_RETRIES=3
-STARTUP_RETRY_DELAY=2
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-
-# Ensure state directory exists
-mkdir -p "$STATE_DIR"
-
-# ============================================================
-# Lock Functions (prevent race conditions)
-# ============================================================
-acquire_lock() {
-    exec 200>"$LOCK_FILE"
-    if ! flock -n 200; then
-        log_info "Another myclaude instance is starting backend, waiting..."
-        flock 200  # Wait for lock
-    fi
-}
-
-release_lock() {
-    flock -u 200 2>/dev/null || true
-    exec 200>&-
-}
-
-# ============================================================
-# Memory Reporting
-# ============================================================
-report_memory_usage() {
-    local label="${1:-Current}"
-    local mem_mb
-    mem_mb=$(ps aux | awk '/[l]itellm|[n]ginx: worker/ {sum+=$6} END {print sum/1024}' 2>/dev/null || echo "0")
-    log_info "${label} RAM usage: ${mem_mb} MB"
-}
-
-# ============================================================
-# Activity Tracking
-# ============================================================
-update_activity() {
-    date +%s > "$ACTIVITY_FILE"
-}
-
-get_last_activity() {
-    cat "$ACTIVITY_FILE" 2>/dev/null || echo 0
-}
-
-is_idle() {
-    local last_activity
-    last_activity=$(get_last_activity)
-    local now
-    now=$(date +%s)
-    [ $((now - last_activity)) -gt "$IDLE_TIMEOUT" ]
-}
-
-# ============================================================
-# Backend Health Check
-# ============================================================
-wait_for_healthy() {
-    local max_wait=30
-    local waited=0
-    local interval=1
-
-    log_info "Waiting for backend to become healthy..."
-    while [ $waited -lt $max_wait ]; do
-        # Check nginx health endpoint (port 4000) - this tests the full proxy stack
-        if curl -s --max-time 2 -f "http://localhost:4000/health" >/dev/null 2>&1; then
-            log_success "Backend is healthy"
-            return 0
-        fi
-        sleep $interval
-        waited=$((waited + interval))
-        echo -n "."
-    done
-    echo ""
-    log_error "Backend health check timeout after ${max_wait}s"
-    return 1
-}
-
-# ============================================================
-# Start Backend with Retry Logic
-# ============================================================
-start_backend() {
-    local attempt=1
-
-    while [ $attempt -le $STARTUP_RETRIES ]; do
-        if [ $attempt -gt 1 ]; then
-            local delay=$((STARTUP_RETRY_DELAY * (2 ** (attempt - 2))))
-            log_warn "Retry $attempt/$STARTUP_RETRIES after ${delay}s..."
-            sleep $delay
-        fi
-
-        log_info "Starting MyClaude backend (attempt $attempt/$STARTUP_RETRIES)..."
-        if sudo systemctl start "$SERVICE_NAME"; then
-            if wait_for_healthy; then
-                log_success "MyClaude backend started successfully"
-                report_memory_usage "Post-startup"
-                return 0
-            else
-                log_warn "Backend started but health check failed"
-                sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-            fi
-        else
-            log_warn "systemctl start failed"
-        fi
-
-        attempt=$((attempt + 1))
-    done
-
-    log_error "Failed to start backend after $STARTUP_RETRIES attempts"
-    log_error "Check: journalctl -u $SERVICE_NAME -n 30"
-    return 1
-}
-
-# ============================================================
-# Stop Backend Gracefully
-# ============================================================
-stop_backend() {
-    log_info "Stopping MyClaude backend due to idle timeout (${IDLE_TIMEOUT}s)..."
-    report_memory_usage "Pre-shutdown"
-
-    # Stop the monitor first
-    stop_idle_monitor
-
-    # Stop systemd service (stops both LiteLLM and nginx via dependencies)
-    if sudo systemctl stop "$SERVICE_NAME"; then
-        log_success "MyClaude backend stopped"
-    else
-        log_warn "systemctl stop returned non-zero (service may already be stopped)"
-    fi
-
-    # Clear activity file
-    rm -f "$ACTIVITY_FILE"
-    report_memory_usage "Post-shutdown"
-}
-
-# ============================================================
-# Idle Monitor (background process)
-# ============================================================
-spawn_idle_monitor() {
-    # Check if monitor is already running
-    if [ -f "$MONITOR_PID_FILE" ]; then
-        local existing_pid
-        existing_pid=$(cat "$MONITOR_PID_FILE" 2>/dev/null)
-        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
-            return 0  # Monitor already running
-        fi
-    fi
-
-    (
-        # Child process - idle monitor
-        while true; do
-            sleep 30
-
-            # Acquire lock to safely check/stop
-            exec 200>"$LOCK_FILE"
-            if flock -n 200; then
-                if is_idle; then
-                    stop_backend
-                fi
-                flock -u 200
-            fi
-            exec 200>&-
-        done
-    ) &
-
-    local monitor_pid=$!
-    echo "$monitor_pid" > "$MONITOR_PID_FILE"
-    log_info "Idle monitor started (PID: $monitor_pid, timeout: ${IDLE_TIMEOUT}s)"
-}
-
-stop_idle_monitor() {
-    if [ -f "$MONITOR_PID_FILE" ]; then
-        local pid
-        pid=$(cat "$MONITOR_PID_FILE" 2>/dev/null)
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null
-            wait "$pid" 2>/dev/null || true
-            log_info "Idle monitor stopped"
-        fi
-        rm -f "$MONITOR_PID_FILE"
-    fi
-}
-
-# ============================================================
-# Cleanup on Exit
-# ============================================================
-cleanup() {
-    # Update activity one last time (so monitor doesn't stop immediately if user restarts quickly)
-    update_activity
-    # Don't stop monitor here - let it handle idle timeout naturally
-    # But if we're the last claude process, monitor will stop backend after timeout
-}
-trap cleanup EXIT
-
-# ============================================================
-# Main Logic
-# ============================================================
-main() {
-    # Acquire lock for startup critical section
-    acquire_lock
-
-    # Update activity timestamp
-    update_activity
-
-    # Check if backend is running
-    if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-        # Backend not running - start it
-        if ! start_backend; then
-            release_lock
-            exit 1
-        fi
-    else
-        log_info "MyClaude backend already running"
-    fi
-
-    # Spawn/restart idle monitor
-    spawn_idle_monitor
-
-    # Release lock before launching Claude Code (allows concurrent invocations)
-    release_lock
-
-    # Detect if TLS is enabled (check nginx config for port 4443)
-    if grep -q "listen 4443" "$NGINX_CONF" 2>/dev/null; then
-        export ANTHROPIC_BASE_URL="https://localhost:4443"
-        export NODE_TLS_REJECT_UNAUTHORIZED=0
-        export ANTHROPIC_API_KEY="sk-local-proxy-key"
-        log_info "Launching Claude Code via MyClaude proxy (HTTPS)..."
-    else
-        export ANTHROPIC_BASE_URL="http://localhost:4001"
-        export ANTHROPIC_API_KEY="sk-local-proxy-key"
-        log_info "Launching Claude Code via MyClaude proxy (HTTP)..."
-    fi
-
-    # Execute Claude Code - this blocks until user exits
-    exec claude "$@"
-}
-
-main "$@"
-WRAPEOF
-
-    sudo cp /tmp/myclaude_wrapper /usr/local/bin/myclaude
+    # Use the comprehensive myclaude.sh wrapper from the repo
+    sudo cp "$REPO_DIR/myclaude.sh" /usr/local/bin/myclaude
     sudo chmod +x /usr/local/bin/myclaude
-    rm -f /tmp/myclaude_wrapper
 }
 
 setup_tls() {
@@ -1416,16 +1133,9 @@ verify() {
         exit 1
     fi
 
-    # Read local key from .env
-    local local_key
-    local_key=$(grep "LITELLM_MASTER_KEY" "$REPO_DIR/.env" | cut -d'"' -f2)
-    if [ -z "$local_key" ]; then
-        local_key="sk-local-proxy-key"
-    fi
-
     local test_result
     test_result=$(curl -s --max-time 15 \
-        -H "Authorization: Bearer $local_key" \
+        -H "Authorization: Bearer sk-local-proxy-key" \
         -H "Content-Type: application/json" \
         -X POST http://localhost:4000/v1/chat/completions \
         -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
@@ -1440,7 +1150,7 @@ verify() {
             ui_msgbox "WARNING: HTTPS NOT on port 4443"
         else
             test_result=$(curl -k -s --max-time 15 \
-                -H "Authorization: Bearer $local_key" \
+                -H "Authorization: Bearer sk-local-proxy-key" \
                 -H "Content-Type: application/json" \
                 -X POST https://localhost:4443/v1/chat/completions \
                 -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
@@ -1459,7 +1169,7 @@ main() {
     cd "$REPO_DIR"
 
     # Welcome screen
-    if ! ui_yesno "Welcome to MyClaude Installer\n\nThis will set up:\n• nginx reverse proxy (port 4000/4443)\n• LiteLLM proxy (port 4001)\n• NVIDIA NIM model routing (4 models)\n• systemd service with auto-restart\n• myclaude command wrapper\n• Claude Code CLI (if not installed)\n• ~/.claude/settings.json (MCP servers, permissions, Opus 1M)\n\nContinue?"; then
+    if ! ui_yesno "Welcome to MyClaude Installer\n\nThis will set up:\n• nginx reverse proxy (port 4000)\n• LiteLLM proxy (port 4001)\n• NVIDIA NIM model routing\n• systemd service\n• myclaude command wrapper\n\nContinue?"; then
         echo "Installation cancelled."
         exit 0
     fi
@@ -1477,7 +1187,7 @@ main() {
     step4_payload
 
     # Confirm installation
-    if ! ui_yesno "Ready to install MyClaude?\n\nThis will:\n• Install system packages (nginx, python3-venv)\n• Create system user 'myclaude'\n• Set up Python venv + LiteLLM\n• Configure nginx + systemd\n• Install myclaude wrapper command\n• Install Claude Code CLI (if missing)\n• Create ~/.claude/settings.json with MCP servers\n\nProceed?"; then
+    if ! ui_yesno "Ready to install MyClaude?\n\nThis will:\n• Install system packages (nginx, python3-venv)\n• Create system user 'myclaude'\n• Set up Python venv + LiteLLM\n• Configure nginx + systemd\n• Install myclaude wrapper command\n\nProceed?"; then
         echo "Installation cancelled."
         exit 0
     fi
@@ -1486,7 +1196,7 @@ main() {
     run_installation
 
     # Success
-    ui_msgbox "Installation Complete!\n\nQuick start:\n  myclaude              # launch Claude Code via NVIDIA NIM proxy (on-demand)\n  myclaude --help       # pass args to Claude Code\n\nOn-demand features:\n  • Backend starts automatically when you run 'myclaude'\n  • Backend stops after 5 minutes of inactivity (configurable)\n  • Set MYCLAUDE_IDLE_TIMEOUT=0 in .env to disable (always-on)\n\nService management:\n  sudo systemctl status myclaude\n  sudo systemctl restart myclaude\n  journalctl -u myclaude -f\n\nConvenience aliases (run 'source ~/.bashrc'):\n  myclaude-status  myclaude-logs  myclaude-start  myclaude-stop\n\nClaude Code configured with:\n  • ~/.claude/settings.json (MCP servers, permissions, Opus 1M)\n  • Auto-detects TLS (HTTPS on 4443 if enabled)"
+    ui_msgbox "Installation Complete!\n\nQuick start:\n  myclaude              # launch Claude Code\n  myclaude --help       # pass args to Claude Code\n\nService management:\n  sudo systemctl status myclaude\n  sudo systemctl restart myclaude\n  journalctl -u myclaude -f\n\nConvenience aliases (run 'source ~/.bashrc'):\n  myclaude-status  myclaude-logs  myclaude-start  myclaude-stop"
 }
 
 # Handle --auto mode for non-interactive
@@ -1503,7 +1213,6 @@ if [[ "${1:-}" == "--auto" ]]; then
     NGINX_RATE="${NGINX_RATE:-16}"
     NGINX_BURST="${NGINX_BURST:-32}"
     REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-3600}"
-    AUTO_MODE=true
 
     if [ -z "$NVIDIA_API_KEY_PROJECT_1" ]; then
         echo "ERROR: NVIDIA_API_KEY_PROJECT_1 required for --auto mode"
@@ -1523,7 +1232,6 @@ if [[ "${1:-}" == "--auto" ]]; then
     setup_systemd
     setup_tls
     setup_claude_code
-    setup_claude_settings
     setup_bashrc
     setup_wrapper
     setup_lan_hosting

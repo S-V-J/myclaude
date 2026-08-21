@@ -87,8 +87,8 @@ wait_for_healthy() {
 
     log_info "Waiting for backend to become healthy..."
     while [ $waited -lt $max_wait ]; do
-        # Check nginx health endpoint (port 4000) - this tests the full proxy stack
-        if curl -s --max-time 2 -f "http://localhost:4000/health" >/dev/null 2>&1; then
+        # Check LiteLLM health through nginx (port 4000/health/litellm) - tests full proxy stack
+        if curl -s --max-time 2 -f "http://localhost:4000/health/litellm" >/dev/null 2>&1; then
             log_success "Backend is healthy"
             return 0
         fi
@@ -259,12 +259,15 @@ main() {
         export ANTHROPIC_API_KEY="$local_key"
         log_info "Launching Claude Code via MyClaude proxy (HTTPS)..."
     else
-        export ANTHROPIC_BASE_URL="http://localhost:4001"
+        export ANTHROPIC_BASE_URL="http://localhost:4000"
         export ANTHROPIC_API_KEY="$local_key"
         log_info "Launching Claude Code via MyClaude proxy (HTTP)..."
     fi
 
     # Execute Claude Code - this blocks until user exits
+    # Note: cleanup trap runs on shell exit, but exec replaces the process
+    # So we run cleanup manually before exec
+    cleanup
     exec claude "$@"
 }
 

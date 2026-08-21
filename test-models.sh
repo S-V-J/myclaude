@@ -127,9 +127,9 @@ main() {
     # Model tests
     for model in "${!MODELS[@]}"; do
         if test_model "$model"; then
-            ((passed++))
+            ((passed += 1))
         else
-            ((failed++))
+            ((failed += 1))
         fi
     done
 

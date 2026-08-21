@@ -1,7 +1,7 @@
 # config.yaml
 # ONE MODEL (Nemotron 3 Ultra) × 4 API KEYS = 4 deployments
 # Each model name maps to a specific API key for load isolation
-# All models use Nemotron 3 Ultra with thinking mode enabled (enable_thinking: true, reasoning_budget: 16384)
+# Fallback: if PROJECT_2-4 keys not set, they fall back to PROJECT_1
 
 litellm_settings:
   use_chat_completions_url_for_anthropic_messages: true
@@ -9,19 +9,15 @@ litellm_settings:
   request_timeout: 3600
   master_key: os.environ/LITELLM_MASTER_KEY
   drop_params: true
-  # On-demand memory optimizations
-  # Reduce connection pool sizes for intermittent use
   max_parallel_requests: 8
-  # Disable caching during idle to reduce memory
   cache: false
-  # Disable request/response logging to reduce memory
   log_level: "WARNING"
 
 general_settings:
   global_max_parallel_requests: 8
   request_timeout: 3600
   num_retries: 3
-  health_check_interval: 300  # ✅ FIXED: Moved here from router_settings
+  health_check_interval: 300
 
 router_settings:
   allowed_fails: 3
@@ -29,7 +25,6 @@ router_settings:
   cooldown_time: 5
   routing_strategy: "least-busy"
   default_max_parallel_requests: 8
-  # ✅ FIXED: health_check_interval removed from here
 
 model_list:
   # Model 1: Default / Opus (1M context) → PROJECT_1
@@ -40,19 +35,11 @@ model_list:
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 20
-      tpm: 50000
-      max_parallel_requests: 8
       drop_params: true
-      # Nemotron 3 Ultra thinking mode
-      extra_body:
-        chat_template_kwargs:
-          enable_thinking: true
-        reasoning_budget: 16384
     model_info:
       mode: chat
 
-  # Model 2: Sonnet → PROJECT_2
+  # Model 2: Sonnet → PROJECT_2 (fallback to PROJECT_1)
   - model_name: claude-sonnet-5
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
@@ -60,19 +47,12 @@ model_list:
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 20
-      tpm: 50000
-      max_parallel_requests: 8
       drop_params: true
-      # Nemotron 3 Ultra thinking mode
-      extra_body:
-        chat_template_kwargs:
-          enable_thinking: true
-        reasoning_budget: 16384
     model_info:
       mode: chat
+    fallback_model: claude-opus-5
 
-  # Model 3: Sonnet 5 (1M context) → PROJECT_3
+  # Model 3: Sonnet 5 (1M context) → PROJECT_3 (fallback to PROJECT_1)
   - model_name: claude-sonnet-5-1m
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
@@ -80,19 +60,12 @@ model_list:
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 20
-      tpm: 50000
-      max_parallel_requests: 8
       drop_params: true
-      # Nemotron 3 Ultra thinking mode
-      extra_body:
-        chat_template_kwargs:
-          enable_thinking: true
-        reasoning_budget: 16384
     model_info:
       mode: chat
+    fallback_model: claude-opus-5
 
-  # Model 4: Haiku → PROJECT_4
+  # Model 4: Haiku → PROJECT_4 (fallback to PROJECT_1)
   - model_name: claude-haiku-4-5
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
@@ -100,14 +73,7 @@ model_list:
       temperature: 1.0
       top_p: 0.95
       max_tokens: 16384
-      rpm: 20
-      tpm: 50000
-      max_parallel_requests: 8
       drop_params: true
-      # Nemotron 3 Ultra thinking mode
-      extra_body:
-        chat_template_kwargs:
-          enable_thinking: true
-        reasoning_budget: 16384
     model_info:
       mode: chat
+    fallback_model: claude-opus-5
