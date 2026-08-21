@@ -11,6 +11,8 @@ NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 # On-demand configuration (can be overridden via environment)
 IDLE_TIMEOUT="${MYCLAUDE_IDLE_TIMEOUT:-300}"  # 5 minutes default
 LOCK_FILE="/tmp/myclaude.lock"
+STARTUP_LOCK_FILE="/tmp/myclaude-startup.lock"
+MONITOR_LOCK_FILE="/tmp/myclaude-monitor.lock"
 STATE_DIR="/tmp/myclaude"
 ACTIVITY_FILE="${STATE_DIR}/last_activity"
 MONITOR_PID_FILE="${STATE_DIR}/monitor.pid"
@@ -35,17 +37,44 @@ mkdir -p "$STATE_DIR"
 # ============================================================
 # Lock Functions (prevent race conditions)
 # ============================================================
-acquire_lock() {
-    exec 200>"$LOCK_FILE"
+# Use separate lock files: one for startup, one for idle monitor
+STARTUP_LOCK_FILE="/tmp/myclaude-startup.lock"
+MONITOR_LOCK_FILE="/tmp/myclaude-monitor.lock"
+
+acquire_startup_lock() {
+    exec 200>"$STARTUP_LOCK_FILE"
+    # Non-blocking with timeout - fail fast if can't get lock
     if ! flock -n 200; then
-        log_info "Another myclaude instance is starting backend, waiting..."
-        flock 200  # Wait for lock
+        log_info "Another myclaude instance is starting backend, waiting up to 10s..."
+        # Wait with timeout - don't block forever
+        local waited=0
+        while [ $waited -lt 10 ]; do
+            if flock -n 200; then
+                return 0
+            fi
+            sleep 1
+            waited=$((waited + 1))
+        done
+        log_warn "Could not acquire startup lock, proceeding anyway (backend may already be running)"
+        return 1
     fi
 }
 
-release_lock() {
+release_startup_lock() {
     flock -u 200 2>/dev/null || true
     exec 200>&-
+}
+
+acquire_monitor_lock() {
+    exec 201>"$MONITOR_LOCK_FILE"
+    if ! flock -n 201; then
+        return 1  # Don't wait - just skip this check cycle
+    fi
+}
+
+release_monitor_lock() {
+    flock -u 201 2>/dev/null || true
+    exec 201>&-
 }
 
 # ============================================================
@@ -176,15 +205,14 @@ spawn_idle_monitor() {
         while true; do
             sleep 30
 
-            # Acquire lock to safely check/stop
-            exec 200>"$LOCK_FILE"
-            if flock -n 200; then
+            # Acquire monitor lock to safely check/stop (non-blocking)
+            if acquire_monitor_lock; then
                 if is_idle; then
                     stop_backend
                 fi
-                flock -u 200
+                release_monitor_lock
             fi
-            exec 200>&-
+            # If couldn't acquire lock, skip this cycle - another monitor check is running
         done
     ) &
 
@@ -221,8 +249,8 @@ trap cleanup EXIT
 # Main Logic
 # ============================================================
 main() {
-    # Acquire lock for startup critical section
-    acquire_lock
+    # Acquire startup lock for startup critical section (with timeout)
+    acquire_startup_lock || true
 
     # Update activity timestamp
     update_activity
@@ -231,7 +259,7 @@ main() {
     if ! systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         # Backend not running - start it
         if ! start_backend; then
-            release_lock
+            release_startup_lock
             exit 1
         fi
     else
@@ -241,8 +269,8 @@ main() {
     # Spawn/restart idle monitor
     spawn_idle_monitor
 
-    # Release lock before launching Claude Code (allows concurrent invocations)
-    release_lock
+    # Release startup lock before launching Claude Code (allows concurrent invocations)
+    release_startup_lock
 
     # Read the local proxy key from .env
     local repo_dir
