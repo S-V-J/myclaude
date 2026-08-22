@@ -368,7 +368,13 @@ step3_advanced() {
     # TLS domain input
     if [ "$ENABLE_TLS" = true ]; then
         TLS_DOMAIN=$(inputbox "Domain for TLS cert (e.g., myclaude.local):" "localhost")
-        if yesno "Also keep HTTP on port 4000? (Recommended for local access)"; then
+        HTTPS_PORT=$(find_free_port 4443)
+        if [ -z "$HTTPS_PORT" ]; then
+            log_error "Could not find free port for HTTPS"
+            exit 1
+        fi
+        log_info "Using HTTPS port: $HTTPS_PORT"
+        if yesno "Also keep HTTP on port $NGINX_PORT? (Recommended for local access)"; then
             TLS_ENABLE_HTTP="true"
         else
             TLS_ENABLE_HTTP="false"
@@ -376,6 +382,7 @@ step3_advanced() {
     else
         TLS_DOMAIN="localhost"
         TLS_ENABLE_HTTP="true"
+        HTTPS_PORT=""
     fi
 
     return 0
@@ -532,7 +539,7 @@ setup_nginx() {
 
     # Add rate limiting zone to nginx.conf http block if not present
     if ! grep -q "limit_req_zone.*myclaude" /etc/nginx/nginx.conf 2>/dev/null; then
-        sudo sed -i '/http {/a\    limit_req_zone $binary_remote_addr zone=myclaude:10m rate=16r/s;' /etc/nginx/nginx.conf
+        sudo sed -i '/http {/a\    limit_req_zone $binary_remote_addr zone=myclaude:10m rate=16r\/s;' /etc/nginx/nginx.conf
     fi
 
     # Rate limiting is now explicit in nginx-myclaude.conf template
