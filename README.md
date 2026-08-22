@@ -61,7 +61,7 @@ flowchart LR
 
     subgraph Proxy["Local Proxy Stack (localhost)"]
         direction TB
-        NX["nginx :4000 / :4443\nRate Limiter\n16 req/s · burst 32\nTLS Termination"]
+        NX["nginx :4000\nRate Limiter\n16 req/s · burst 32\nTLS Termination (optional)"]
         LL["LiteLLM :4001\nProxy & Router\nAnthropic to OpenAI"]
     end
 
@@ -130,7 +130,9 @@ flowchart TB
 - **Load isolation** — 4 independent API keys provide 80 RPM combined (20 RPM each)
 - **Single model simplicity** — All Claude models map to Nemotron 3 Ultra with thinking mode enabled
 - **Local-first** — everything runs on your machine, keys never leave your control
-- **Production-ready** — TLS, log rotation, health checks, dedicated service user
+- **Production-ready** — TLS (optional), log rotation, health checks, dedicated service user
+- **Always-on mode** — No idle shutdown by default (IDLE_TIMEOUT=0), zero wait time
+- **Self-healing** — Auto-restart on failure, health monitoring with auto-recovery
 
 ## Prerequisites
 
@@ -252,6 +254,7 @@ ENABLE_TLS=true TLS_DOMAIN=myclaude.local TLS_ENABLE_HTTP=true NVIDIA_API_KEY_PR
 ```
 
 **Auto-mode Environment Variables:**
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `NVIDIA_API_KEY_PROJECT_1` | *required* | Primary NVIDIA NIM API key (Opus/Default) |
@@ -265,6 +268,7 @@ ENABLE_TLS=true TLS_DOMAIN=myclaude.local TLS_ENABLE_HTTP=true NVIDIA_API_KEY_PR
 | `NGINX_RATE` | `16` | Rate limit (req/s) |
 | `NGINX_BURST` | `32` | Burst limit |
 | `REQUEST_TIMEOUT` | `3600` | Request timeout (seconds) |
+| `IDLE_TIMEOUT` | `0` | Idle timeout in seconds (0 = always-on) |
 
 ### Option 3: Makefile (Convenience Commands)
 
@@ -365,6 +369,7 @@ myclaude-stop    # sudo systemctl stop myclaude
 | `setup-tls.sh` | TLS/SSL certificate generator |
 | `test-models.sh` | Model testing script |
 | `logrotate-myclaude` | Log rotation config |
+| `Makefile` | Convenience commands |
 
 ### .env Variables
 
@@ -382,6 +387,9 @@ LITELLM_MASTER_KEY="sk-local-..."
 
 # Required — forces Anthropic message format compatibility
 LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="true"
+
+# Optional — Idle timeout in seconds (0 = always-on, default: 0)
+MYCLAUDE_IDLE_TIMEOUT=0
 ```
 
 ### LiteLLM Config (`config.yaml`)
@@ -389,7 +397,7 @@ LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="true"
 Key settings (managed by TUI installer):
 - **Routing strategy**: `least-busy` — picks the model with fewest active requests
 - **Fallbacks**: `claude-opus-5` → `claude-sonnet-5` on failure
-- **Retries**: 5 attempts, 5s cooldown between retries
+- **Retries**: 5 attempts, 10s cooldown between retries
 - **Parallel limits**: 8 max concurrent per model (stays safely under NVIDIA's 20 RPM tier per key)
 - **Timeouts**: 3600s request timeout for long-running tasks
 - **Thinking mode**: Enabled for Nemotron models via `extra_body` (`enable_thinking: true`, `reasoning_budget: 16384`)
@@ -532,6 +540,7 @@ Testing claude-haiku-4-5 (nemotron-3-ultra-550b-a55b, PROJECT_4)... [PASS] Respo
 | Model returns 429 | API key rate limited — wait or use different key |
 | TUI not displaying | Ensure terminal supports ANSI colors (most do) |
 | TLS cert errors | Use `curl -k` or trust cert: `sudo cp /etc/ssl/myclaude/myclaude.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates` |
+| **401 API key is invalid** | Disable "Use custom API key" in Claude Code Settings (set `useCustomApiKey: false`) |
 
 ## Development / Contributing
 
