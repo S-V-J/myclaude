@@ -900,7 +900,7 @@ setup_claude_settings() {
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/ML"
+        "${HOME}"
       ]
     },
     "fetch": {
@@ -936,7 +936,7 @@ setup_claude_settings() {
         "-y",
         "@modelcontextprotocol/server-sqlite",
         "--db-path",
-        "/home/ML/data.db"
+        "${HOME}/data.db"
       ]
     },
     "redis": {
@@ -1012,7 +1012,7 @@ setup_claude_settings() {
     ]
   },
   "workspace": {
-    "root": "/home/ML",
+    "root": "${HOME}",
     "include": [
       "**/*.py",
       "**/*.js",
@@ -1056,7 +1056,8 @@ setup_claude_settings() {
   "notifications": {
     "enabled": true,
     "sound": false
-  }
+  },
+  "useCustomApiKey": false
 }
 SETTINGSEOF
 
@@ -1232,6 +1233,7 @@ if [[ "${1:-}" == "--auto" ]]; then
     setup_systemd
     setup_tls
     setup_claude_code
+    setup_claude_settings
     setup_bashrc
     setup_wrapper
     setup_lan_hosting

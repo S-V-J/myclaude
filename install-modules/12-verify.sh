@@ -17,7 +17,7 @@ for cmd in nginx python3 litellm npm node; do
 done
 
 # Check config files
-for file in "$REPO_DIR/config.yaml" "$REPO_DIR/.env" "$REPO_DIR/myclaude-wrapper.sh" /etc/nginx/sites-enabled/myclaude; do
+for file in "$REPO_DIR/config.yaml" "$REPO_DIR/.env" "$REPO_DIR/myclaude.sh" /etc/nginx/sites-enabled/myclaude; do
     if [[ ! -f "$file" ]]; then
         log_error "Missing file: $file"
         ((ERRORS++))

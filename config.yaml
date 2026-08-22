@@ -5,26 +5,35 @@
 
 litellm_settings:
   use_chat_completions_url_for_anthropic_messages: true
-  num_retries: 3
+  num_retries: 5
   request_timeout: 3600
   master_key: os.environ/LITELLM_MASTER_KEY
   drop_params: true
   max_parallel_requests: 8
   cache: false
   log_level: "WARNING"
+  # Better handling of NVIDIA rate limits
+  routing_strategy: "least-busy"
+  # Disable problematic features
+  telemetry: false
+  callbacks: []
 
 general_settings:
   global_max_parallel_requests: 8
   request_timeout: 3600
-  num_retries: 3
+  num_retries: 5
   health_check_interval: 300
 
 router_settings:
-  allowed_fails: 3
-  retry_after: 5
-  cooldown_time: 5
+  allowed_fails: 5
+  retry_after: 10
+  cooldown_time: 10
   routing_strategy: "least-busy"
   default_max_parallel_requests: 8
+  # Retry settings for NVIDIA rate limits
+  retry_on_rate_limit: true
+  retry_on_timeout: true
+  retry_after: 10
 
 model_list:
   # Model 1: Default / Opus (1M context) → PROJECT_1
@@ -36,6 +45,9 @@ model_list:
       top_p: 0.95
       max_tokens: 16384
       drop_params: true
+      # Better retry handling
+      num_retries: 5
+      timeout: 300
     model_info:
       mode: chat
 
@@ -48,6 +60,8 @@ model_list:
       top_p: 0.95
       max_tokens: 16384
       drop_params: true
+      num_retries: 5
+      timeout: 300
     model_info:
       mode: chat
     fallback_model: claude-opus-5
@@ -61,6 +75,8 @@ model_list:
       top_p: 0.95
       max_tokens: 16384
       drop_params: true
+      num_retries: 5
+      timeout: 300
     model_info:
       mode: chat
     fallback_model: claude-opus-5
@@ -74,6 +90,8 @@ model_list:
       top_p: 0.95
       max_tokens: 16384
       drop_params: true
+      num_retries: 5
+      timeout: 300
     model_info:
       mode: chat
     fallback_model: claude-opus-5
