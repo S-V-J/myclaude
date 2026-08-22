@@ -28,7 +28,17 @@ fi
 SERVICE_NAME="myclaude"
 NGINX_CONF="/etc/nginx/sites-enabled/myclaude"
 VENV_DIR="$REPO_DIR/venv"
-SERVICE_USER="myclaude"
+
+# Use the installing user as the service user (not a dedicated myclaude user)
+# This allows the system to work for any user without creating a dedicated service user
+SERVICE_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+# Ensure we don't run as root
+if [ "$SERVICE_USER" = "root" ] || [ -z "$SERVICE_USER" ]; then
+    SERVICE_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}' /etc/passwd)
+fi
+if [ -z "$SERVICE_USER" ] || [ "$SERVICE_USER" = "root" ]; then
+    SERVICE_USER="${USER:-$(id -un)}"
+fi
 
 # Detect OS and package manager
 detect_os() {
@@ -616,57 +626,40 @@ ENVEOF
 }
 
 setup_system_user() {
-    if id "$SERVICE_USER" &>/dev/null; then
+    # Ensure the service user exists (use existing user, don't create dedicated service user)
+    if ! id "$SERVICE_USER" &>/dev/null; then
         if [ "$USE_TUI" = true ]; then
-            if ui_yesno "User '$SERVICE_USER' already exists. Re-create it?"; then
-                sudo userdel -r "$SERVICE_USER" 2>/dev/null || true
+            if ui_yesno "User '$SERVICE_USER' does not exist. Create it?"; then
                 sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+            else
+                log_error "User $SERVICE_USER does not exist. Cannot proceed."
+                exit 1
             fi
         else
-            # In --auto mode, just ensure user exists
-            echo "User $SERVICE_USER exists, keeping it."
+            # In --auto mode, create user if needed
+            sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
         fi
     else
-        sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+        # User exists, ensure it's a system user
+        log_info "User $SERVICE_USER exists, using it for MyClaude service."
     fi
     sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR" 2>/dev/null || true
     sudo chmod 755 "$REPO_DIR" 2>/dev/null || true
 }
 
 setup_venv() {
+    # Ensure the service user owns the repo directory
     sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR" 2>/dev/null || true
     sudo chmod 755 "$REPO_DIR" 2>/dev/null || true
 
-    # Determine which user to create venv as
-    if sudo -u "$SERVICE_USER" test -w "$REPO_DIR" 2>/dev/null; then
-        VENV_AS_USER="$SERVICE_USER"
-    else
-        # Fallback: find a suitable user
-        VENV_AS_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
-        if [ "$VENV_AS_USER" = "root" ] || [ -z "$VENV_AS_USER" ]; then
-            VENV_AS_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}' /etc/passwd)
-        fi
-        if [ -z "$VENV_AS_USER" ] || [ "$VENV_AS_USER" = "root" ]; then
-            VENV_AS_USER="${USER:-$(id -un)}"
-        fi
-        if [ -z "$VENV_AS_USER" ] || [ "$VENV_AS_USER" = "root" ]; then
-            VENV_AS_USER="$SERVICE_USER"
-        fi
-        sudo chown -R "$VENV_AS_USER:$VENV_AS_USER" "$REPO_DIR" 2>/dev/null || true
-    fi
-
+    # Create venv as the service user (who now owns the repo)
     if [ ! -d "$VENV_DIR" ]; then
-        sudo -u "$VENV_AS_USER" python3 -m venv "$VENV_DIR"
+        sudo -u "$SERVICE_USER" python3 -m venv "$VENV_DIR"
     fi
 
-    # Ensure service user owns venv for systemd
-    if [ "$VENV_AS_USER" != "$SERVICE_USER" ]; then
-        sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR" 2>/dev/null || true
-    fi
-
-    # Install packages
-    sudo -u "$VENV_AS_USER" "$VENV_DIR/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
-    sudo -u "$VENV_AS_USER" "$VENV_DIR/bin/pip" install 'litellm[proxy]' "fastapi<0.140.0" --quiet
+    # Install packages as the service user
+    sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
+    sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install 'litellm[proxy]' "fastapi<0.140.0" --quiet
 }
 
 setup_nginx() {
