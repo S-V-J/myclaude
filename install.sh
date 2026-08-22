@@ -40,35 +40,70 @@ if [ -z "$SERVICE_USER" ] || [ "$SERVICE_USER" = "root" ]; then
     SERVICE_USER="${USER:-$(id -un)}"
 fi
 
-# Detect OS and package manager
-detect_os() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS_ID="${ID:-unknown}"
-        OS_VERSION="${VERSION_ID:-}"
-    else
-        OS_ID="unknown"
-    fi
+# ============================================================
+# Dynamic port detection functions (MUST be defined before use)
+# ============================================================
 
-    if command -v apt &>/dev/null; then
-        PKG_MGR="apt"
-    elif command -v dnf &>/dev/null; then
-        PKG_MGR="dnf"
-    elif command -v yum &>/dev/null; then
-        PKG_MGR="yum"
-    elif command -v pacman &>/dev/null; then
-        PKG_MGR="pacman"
-    elif command -v zypper &>/dev/null; then
-        PKG_MGR="zypper"
-    else
-        PKG_MGR="unknown"
-    fi
+# Find a free port starting from a base port
+find_free_port() {
+    local base_port="${1:-4000}"
+    local max_port="${2:-65535}"
+    local port="$base_port"
+
+    while [ "$port" -le "$max_port" ]; do
+        if ! ss -tlnp 2>/dev/null | grep -q ":$port "; then
+            echo "$port"
+            return 0
+        fi
+        port=$((port + 1))
+    done
+
+    log_error "No free port found starting from $base_port"
+    return 1
 }
 
-# Check if running in WSL
-is_wsl() {
-    grep -qi microsoft /proc/version 2>/dev/null || grep -qi wsl /proc/version 2>/dev/null
+# Find multiple consecutive free ports
+find_consecutive_free_ports() {
+    local count="${1:-2}"
+    local base_port="${2:-4000}"
+    local max_port="${3:-65535}"
+    local ports=()
+    local port="$base_port"
+
+    while [ "$port" -le "$max_port" ]; do
+        local available=true
+        for i in $(seq 0 $((count - 1))); do
+            local check_port=$((port + i))
+            if ss -tlnp 2>/dev/null | grep -q ":$check_port "; then
+                available=false
+                break
+            fi
+        done
+
+        if [ "$available" = true ]; then
+            for i in $(seq 0 $((count - 1))); do
+                ports+=("$((port + i))")
+            fi
+            echo "${ports[*]}"
+            return 0
+        fi
+        port=$((port + 1))
+    done
+
+    log_error "No $count consecutive free ports found starting from $base_port"
+    return 1
 }
+
+# Find dynamic ports at startup
+NGINX_PORT=$(find_free_port 4000)
+LITELLM_PORT=$(find_free_port 4001)
+
+if [ -z "$NGINX_PORT" ] || [ -z "$LITELLM_PORT" ]; then
+    log_error "Could not find free ports for nginx and LiteLLM"
+    exit 1
+fi
+
+log_info "Using dynamic ports: nginx=$NGINX_PORT, LiteLLM=$LITELLM_PORT"
 
 # Logging functions
 log_info() { echo -e "\n[INFO] $*"; }
@@ -337,11 +372,11 @@ step3_advanced() {
     CUSTOM_LIMITS=false
     CUSTOM_TIMEOUTS=false
 
-    if yesno "Enable LAN Access (0.0.0.0:4000 + firewall)?"; then
+    if yesno "Enable LAN Access (0.0.0.0:$NGINX_PORT + firewall)?"; then
         ENABLE_LAN=true
     fi
 
-    if yesno "Enable TLS/SSL (HTTPS on port 4443)?"; then
+    if yesno "Enable TLS/SSL (HTTPS on dynamic port)?"; then
         ENABLE_TLS=true
     fi
 
@@ -530,11 +565,16 @@ setup_venv() {
 
 setup_nginx() {
     sudo rm -f "$NGINX_CONF"
-    sudo cp "$REPO_DIR/nginx-myclaude.conf" "$NGINX_CONF"
+    # Generate nginx config with dynamic ports
+    sed -e "s|__NGINX_PORT__|$NGINX_PORT|g" \
+        -e "s|__LITELLM_PORT__|$LITELLM_PORT|g" \
+        -e "s|__NGINX_HTTPS_PORT__|$HTTPS_PORT|g" \
+        -e "s|__TLS_DOMAIN__|$TLS_DOMAIN|g" \
+        "$REPO_DIR/nginx-myclaude.conf" > "$NGINX_CONF"
 
     if [ "$ENABLE_LAN" = true ]; then
-        sudo sed -i 's|^listen 4000;|listen 0.0.0.0:4000;|g' "$NGINX_CONF"
-        sudo sed -i 's|^listen 4000 default_server;|listen 0.0.0.0:4000 default_server;|g' "$NGINX_CONF"
+        sudo sed -i "s|^listen __NGINX_PORT__;|listen 0.0.0.0:$NGINX_PORT;|g" "$NGINX_CONF"
+        sudo sed -i "s|^listen __NGINX_PORT__ default_server;|listen 0.0.0.0:$NGINX_PORT default_server;|g" "$NGINX_CONF"
     fi
 
     # Add rate limiting zone to nginx.conf http block if not present
@@ -581,6 +621,7 @@ setup_systemd() {
     sed -e "s|__REPO_DIR__|$REPO_DIR|g" \
         -e "s|__VENV_DIR__|$VENV_DIR|g" \
         -e "s|__SERVICE_USER__|$SERVICE_USER|g" \
+        -e "s|__PORT__|$LITELLM_PORT|g" \
         "$REPO_DIR/litellm.service.template" > "$svc"
 
     sudo cp "$svc" "/etc/systemd/system/${SERVICE_NAME}.service"
@@ -953,9 +994,9 @@ setup_tls() {
 
 setup_lan_hosting() {
     if [ "$ENABLE_LAN" = true ]; then
-        local ports="4000"
+        local ports="$NGINX_PORT"
         if [ "$ENABLE_TLS" = true ]; then
-            ports="4000 4443"
+            ports="$NGINX_PORT $HTTPS_PORT"
         fi
 
         for port in $ports; do
@@ -974,12 +1015,12 @@ setup_lan_hosting() {
 
 verify() {
     # Test HTTP
-    if ! ss -tlnp 2>/dev/null | grep -q ':4000 '; then
-        echo "ERROR: Nginx NOT on port 4000"
+    if ! ss -tlnp 2>/dev/null | grep -q ":$NGINX_PORT "; then
+        echo "ERROR: Nginx NOT on port $NGINX_PORT"
         exit 1
     fi
-    if ! ss -tlnp 2>/dev/null | grep -q ':4001 '; then
-        echo "ERROR: LiteLLM NOT on port 4001"
+    if ! ss -tlnp 2>/dev/null | grep -q ":$LITELLM_PORT "; then
+        echo "ERROR: LiteLLM NOT on port $LITELLM_PORT"
         exit 1
     fi
 
@@ -987,7 +1028,7 @@ verify() {
     test_result=$(curl -s --max-time 15 \
         -H "Authorization: Bearer sk-local-proxy-key" \
         -H "Content-Type: application/json" \
-        -X POST http://localhost:4000/v1/chat/completions \
+        -X POST "http://localhost:$NGINX_PORT/v1/chat/completions" \
         -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
     if ! echo "$test_result" | grep -q "choices\|content"; then
@@ -997,13 +1038,13 @@ verify() {
 
     # Test HTTPS if TLS enabled
     if [ "$ENABLE_TLS" = true ]; then
-        if ! ss -tlnp 2>/dev/null | grep -q ':4443 '; then
-            echo "WARNING: HTTPS NOT on port 4443"
+        if ! ss -tlnp 2>/dev/null | grep -q ":$HTTPS_PORT "; then
+            echo "WARNING: HTTPS NOT on port $HTTPS_PORT"
         else
             test_result=$(curl -k -s --max-time 15 \
                 -H "Authorization: Bearer sk-local-proxy-key" \
                 -H "Content-Type: application/json" \
-                -X POST https://localhost:4443/v1/chat/completions \
+                -X POST "https://localhost:$HTTPS_PORT/v1/chat/completions" \
                 -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"test"}],"max_tokens":5}' 2>&1) || true
 
             if ! echo "$test_result" | grep -q "choices\|content"; then
@@ -1024,8 +1065,8 @@ main() {
     msgbox "Welcome to MyClaude Installer
 
 This will set up:
-• nginx reverse proxy (port 4000)
-• LiteLLM proxy (port 4001)
+• nginx reverse proxy (port $NGINX_PORT)
+• LiteLLM proxy (port $LITELLM_PORT)
 • NVIDIA NIM model routing
 • systemd service
 • myclaude command wrapper
@@ -1098,6 +1139,17 @@ if [[ "${1:-}" == "--auto" ]]; then
         exit 1
     fi
 
+    # Find dynamic ports for auto mode
+    NGINX_PORT=$(find_free_port 4000)
+    LITELLM_PORT=$(find_free_port 4001)
+
+    if [ -z "$NGINX_PORT" ] || [ -z "$LITELLM_PORT" ]; then
+        echo "ERROR: Could not find free ports for nginx and LiteLLM"
+        exit 1
+    fi
+
+    log_info "Using dynamic ports: nginx=$NGINX_PORT, LiteLLM=$LITELLM_PORT"
+
     # Run without TUI
     install_system_packages
     write_env_file
@@ -1120,4 +1172,5 @@ if [[ "${1:-}" == "--auto" ]]; then
 fi
 
 # Run main
-main "$@"
+main "$@"INSTALL_SH_EOF
+echo "Installation script updated successfully!"
