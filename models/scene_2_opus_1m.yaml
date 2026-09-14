@@ -1,0 +1,17 @@
+# Scene 2: Opus 1M (claude-3-opus-20240229)
+# Keys staggered: 2 -> 3 -> 4 -> 1 -> 2
+- model_name: claude-3-opus-20240229
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-opus-20240229
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-opus-20240229
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000}
+  model_info: {mode: chat}
+- model_name: claude-3-opus-20240229
+  litellm_params: {model: nvidia_nim/poolside/laguna-xs-2.1, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 2, timeout: 30000}
+  model_info: {mode: chat}
+- model_name: claude-3-opus-20240229
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}

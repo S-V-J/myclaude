@@ -1,0 +1,33 @@
+litellm_settings:
+  use_chat_completions_url_for_anthropic_messages: true
+  num_retries: 2
+  request_timeout: 36000
+  master_key: os.environ/LITELLM_MASTER_KEY
+  drop_params: true
+  max_parallel_requests: 20
+  cache: false
+  log_level: "INFO"
+  routing_strategy: "simple-shuffle"
+  enable_pre_call_checks: false
+  telemetry: false
+  callbacks: []
+
+general_settings:
+  global_max_parallel_requests: 20
+  request_timeout: 36000
+  num_retries: 2
+  health_check_interval: 120
+
+router_settings:
+  routing_strategy: "simple-shuffle"
+  allowed_fails: 2
+  cooldown_time: 30
+  retry_after: 5
+  default_max_parallel_requests: 5
+  retry_on_rate_limit: true
+  retry_on_timeout: true
+  num_retries: 2
+  timeout: 60000
+  enable_loadbalancing: true
+
+model_list:
