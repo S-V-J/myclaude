@@ -65,4 +65,6 @@ Thumbs.db
 
 # MyClaude API Keys (sensitive - never commit)
 NVIDIA_API_KEY_*
-LITELLM_MASTER_KEY
+LITELLM_MASTER_KEY.env
+.litellm_port
+.nginx_port
