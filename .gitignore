@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# MyClaude-specific
+*.log
+logs/
+*.sqlite3
+
+# Environment files (keep template, not actual values)
+.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Systemd
+*.service
+*.timer
+
+# Nginx
+/etc/nginx/sites-enabled/myclaude
+/etc/nginx/sites-available/myclaude
+
+# Certbot
+/etc/letsencrypt/archive/
+/etc/letsencrypt/certs/
+/etc/letsencryptkeys/
+
+# Temporary
+*.tmp
+*.bak
+*.backup.*
+
+# MyClaude API Keys (sensitive - never commit)
+NVIDIA_API_KEY_*
+LITELLM_MASTER_KEY
