@@ -1,5 +1,6 @@
 # Scene 1: Default (claude-opus-5)
 # Fallback Chain: Ultra -> Super -> Nano -> Laguna -> Ultra
+# Keys staggered: 1 -> 2 -> 3 -> 4 -> 1
 - model_name: claude-opus-5
   litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}

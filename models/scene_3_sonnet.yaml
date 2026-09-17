@@ -1,4 +1,5 @@
 # Scene 3: Sonnet (claude-sonnet-5)
+# Fallback Chain: Ultra -> Super -> Nano -> Laguna -> Ultra
 # Keys staggered: 3 -> 4 -> 1 -> 2 -> 3
 - model_name: claude-sonnet-5
   litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
