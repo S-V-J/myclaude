@@ -29,20 +29,18 @@ case "$1" in
 
         # 2. CRITICAL: Force rebuild config.yaml to ensure it is 100% up to date
         echo "🔨 Rebuilding config.yaml..."
-        if [ -f build_config.sh ]; then
+        if [ -x ./build_config.sh ]; then
             ./build_config.sh
         else
-            echo "❌ build_config.sh not found! Cannot proceed."
+            echo "❌ build_config.sh not found or not executable! Cannot proceed."
             exit 1
         fi
 
         # 3. Ensure ports are defined (generate dynamically)
         LITELLM_PORT=$(get_free_port)
         NGINX_PORT=$(get_free_port)
-        
-        # Save new ports to .env and local files
-        echo "LITELLM_PORT=$LITELLM_PORT" >> .env
-        echo "NGINX_PORT=$NGINX_PORT" >> .env
+
+        # Save new ports to local tracking files (Keeps .env clean)
         echo "$LITELLM_PORT" > .litellm_port
         echo "$NGINX_PORT" > .nginx_port
 
@@ -59,9 +57,10 @@ case "$1" in
         echo "⚙️ Generating dynamic Nginx configuration for port $NGINX_PORT..."
         sudo mkdir -p /etc/nginx/conf.d
 
+        # Place limit_req_zone in conf.d (safely inside the http {} block)
         cat << LIMIT_EOF | sudo tee /etc/nginx/conf.d/myclaude-limit.conf > /dev/null
-# Rate limit zone by API Key (10 Requests Per Minute)
-limit_req_zone \$http_authorization zone=api_key_limit:10m rate=10r/m;
+# Rate limit zone by API Key (30 Requests Per Minute)
+limit_req_zone \$http_authorization zone=api_key_limit:10m rate=30r/m;
 LIMIT_EOF
 
         cat << NGINX_EOF | sudo tee /etc/nginx/sites-available/myclaude > /dev/null
@@ -80,7 +79,7 @@ server {
     send_timeout 3600s;
 
     location / {
-        limit_req zone=api_key_limit burst=5 nodelay;
+        limit_req zone=api_key_limit burst=10 nodelay;
         limit_req_status 429;
         limit_req_log_level warn;
 

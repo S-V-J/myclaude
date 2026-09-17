@@ -1,7 +1,7 @@
 #!/bin/bash
-# MyClaude Installation Script
-# Modular installation system for MyClaude proxy
-# Uses dynamic port discovery - no fixed ports
+# MyClaude One-Command Installation Script
+# Fully automated installation - installs dependencies, configures services, and starts everything
+# Run with: sudo ./install.sh [options]
 
 set -euo pipefail
 
@@ -13,13 +13,14 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Defaults - will be dynamically assigned
+# Defaults - can be overridden by environment variables or command line
 INSTALL_DIR="${MYCLAUDE_INSTALL_DIR:-$HOME/myclaude}"
 SERVICE_USER="${MYCLAUDE_SERVICE_USER:-$USER}"
 ENABLE_HTTPS="${MYCLAUDE_ENABLE_HTTPS:-false}"
 TLS_DOMAIN="${MYCLAUDE_TLS_DOMAIN:-}"
+AUTO_INSTALL_DEPS="${MYCLAUDE_AUTO_INSTALL_DEPS:-true}"
 
-# Paths for default searches
+# Paths for searches
 NGINX_CONF="/etc/nginx/sites-available"
 LITELLM_SERVICE_FILE="/etc/systemd/system"
 
@@ -37,13 +38,14 @@ usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
-MyClaude Installation System (Dynamic Ports)
+MyClaude One-Command Installation System
 
 Options:
   --dir DIR              Installation directory (default: \$HOME/myclaude)
   --user USER            Service user (default: current user)
   --https                Enable HTTPS/TLS
   --domain DOMAIN        TLS domain name (required with --https)
+  --no-deps              Skip automatic dependency installation
   --help                 Show this help
 
 Environment Variables:
@@ -51,13 +53,17 @@ Environment Variables:
   MYCLAUDE_SERVICE_USER  Service user
   MYCLAUDE_ENABLE_HTTPS  Enable HTTPS (true/false)
   MYCLAUDE_TLS_DOMAIN    TLS domain name
+  MYCLAUDE_AUTO_INSTALL_DEPS  Auto install dependencies (true/false)
 
-Note: Ports are automatically discovered to avoid conflicts.
+Note: This script automatically installs dependencies, discovers free ports,
+      configures services, and starts everything. After installation,
+      you need to add your NVIDIA API keys to $INSTALL_DIR/.env
 
 Examples:
-  $0                                    # Auto port discovery
+  $0                                    # One-command install (with deps)
+  $0 --no-deps                          # Skip dependency install (if already done)
   $0 --dir /opt/myclaude --user myclaude
-  $0 --https --domain api.example.com
+  $0 --https --domain api.example.com   # With HTTPS
 EOF
     exit 1
 }
@@ -69,6 +75,7 @@ parse_args() {
             --user) SERVICE_USER="$2"; shift 2 ;;
             --https) ENABLE_HTTPS="true"; shift ;;
             --domain) TLS_DOMAIN="$2"; shift 2 ;;
+            --no-deps) AUTO_INSTALL_DEPS="false"; shift ;;
             --help) usage ;;
             *) log_error "Unknown option: $1"; usage ;;
         esac
@@ -78,27 +85,69 @@ parse_args() {
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         log_error "This script must be run as root (use sudo)"
+        log_info "For one-command install, run: sudo $0 $*"
         exit 1
     fi
 }
 
-check_dependencies() {
-    log_info "Checking dependencies..."
-    local deps=(nginx python3 python3-venv curl procps)
+install_dependencies() {
+    if [[ "$AUTO_INSTALL_DEPS" == "false" ]]; then
+        log_info "Skipping dependency installation (--no-deps flag used)"
+        return 0
+    fi
+
+    log_info "Installing system dependencies..."
+
+    # Update package list
+    apt-get update -qq >/dev/null 2>&1
+
+    # Install required packages
+    local deps=(nginx python3 python3-venv curl jq procps)
     local missing=()
 
     for dep in "${deps[@]}"; do
-        if ! command -v "$dep" >/dev/null 2>&1; then
+        if ! dpkg -l | grep -q "^ii  $dep"; then
             missing+=("$dep")
         fi
     done
 
     if [[ ${#missing[@]} -gt 0 ]]; then
-        log_error "Missing dependencies: ${missing[*]}"
-        log_info "Install with: apt-get update && apt-get install -y ${missing[*]}"
-        exit 1
+        log_info "Installing missing dependencies: ${missing[*]}"
+        DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}" >/dev/null 2>&1
+        log_success "Dependencies installed"
+    else
+        log_success "All dependencies already installed"
     fi
-    log_success "All dependencies found"
+
+    # Install certbot if HTTPS is enabled
+    if [[ "$ENABLE_HTTPS" == "true" ]]; then
+        if ! dpkg -l | grep -q "^ii  certbot"; then
+            log_info "Installing certbot for HTTPS..."
+            DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx >/dev/null 2>&1
+            log_success "certbot installed"
+        fi
+    fi
+}
+
+check_existing_installation() {
+    if [[ -d "$INSTALL_DIR" && "$(ls -A "$INSTALL_DIR")" ]]; then
+        log_warn "Installation directory $INSTALL_DIR is not empty"
+        read -rp "Continue anyway? (y/N) " -n 1
+        echo
+        if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+            log_info "Installation cancelled"
+            exit 1
+        fi
+    fi
+}
+
+create_directories() {
+    log_info "Creating directories..."
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR/venv"
+    mkdir -p "$INSTALL_DIR/logs"
+    mkdir -p /var/log/nginx
+    log_success "Directories created"
 }
 
 discover_ports() {
@@ -128,7 +177,7 @@ discover_ports() {
                 LITELLM_PORT=$port
                 break
             fi
-        fi
+        done
     fi
 
     log_info "LiteLLM port: $LITELLM_PORT"
@@ -136,7 +185,7 @@ discover_ports() {
     # HTTPS port - separate from the above
     HTTPS_PORT=""
     if [[ "$ENABLE_HTTPS" == "true" ]]; then
-        for ((port=5000; port<=50000; port++)); do
+        for ((port=8443; port<=50000; port++)); do  # Start from 8443 for HTTPS
             if ! ss -tuln | grep -q ":${port} "; then
                 HTTPS_PORT=$port
                 break
@@ -146,42 +195,40 @@ discover_ports() {
             log_error "Could not find free HTTPS port"
             exit 1
         fi
+        log_info "HTTPS port: $HTTPS_PORT"
     fi
 
     log_success "Ports discovered: nginx=$NGINX_PORT, litellm=$LITELLM_PORT, https=${HTTPS_PORT:-not-enabled}"
 }
 
-create_directories() {
-    log_info "Creating directories..."
-    mkdir -p "$INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR/venv"
-    mkdir -p "$INSTALL_DIR/logs"
-    mkdir -p /var/log/nginx
-    log_success "Directories created"
-}
-
 install_python_deps() {
     log_info "Setting up Python virtual environment..."
     python3 -m venv "$INSTALL_DIR/venv"
-    "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
-    "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
+    "$INSTALL_DIR/venv/bin/pip" install --upgrade pip >/dev/null 2>&1
+    "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" >/dev/null 2>&1
     log_success "Python dependencies installed"
 }
 
 generate_env_file() {
     log_info "Generating .env file with discovered ports..."
+
+    # Generate a random master key
+    local master_key
+    master_key="sk-local-$(openssl rand -hex 32)"
+
     cat > "$INSTALL_DIR/.env" <<EOF
 # MyClaude Environment Configuration
 # Ports dynamically assigned at installation to avoid conflicts
+# IMPORTANT: Replace the placeholder NVIDIA API keys below with your actual keys
 
-# NVIDIA API Keys (replace these with actual keys)
-NVIDIA_API_KEY_1="YOUR_NVIDIA_API_KEY_1"
-NVIDIA_API_KEY_2="YOUR_NVIDIA_API_KEY_2"
-NVIDIA_API_KEY_3="YOUR_NVIDIA_API_KEY_3"
-NVIDIA_API_KEY_4="YOUR_NVIDIA_API_KEY_4"
+# NVIDIA API Keys (REQUIRED - get from https://build.nvidia.com/)
+NVIDIA_API_KEY_1="nvapi-placeholder-replace-with-your-key-1"
+NVIDIA_API_KEY_2="nvapi-placeholder-replace-with-your-key-2"
+NVIDIA_API_KEY_3="nvapi-placeholder-replace-with-your-key-3"
+NVIDIA_API_KEY_4="nvapi-placeholder-replace-with-your-key-4"
 
-# LiteLLM Master Key (generate with: openssl rand -hex 32)
-LITELLM_MASTER_KEY="sk-local-$(openssl rand -hex 32)"
+# LiteLLM Master Key (generated automatically)
+LITELLM_MASTER_KEY="$master_key"
 
 # LiteLLM Settings
 LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="true"
@@ -189,13 +236,18 @@ LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="true"
 # Idle Timeout (0 = always on, seconds otherwise)
 IDLE_TIMEOUT="0"
 
-# Dynamic ports
+# Dynamic ports (do not edit manually)
 LITELLM_PORT=${LITELLM_PORT}
 NGINX_PORT=${NGINX_PORT}
 HTTPS_PORT=${HTTPS_PORT:-}
+
+# After installation:
+# 1. Edit this file and replace the placeholder NVIDIA API keys with your actual keys
+# 2. Run: sudo systemctl restart myclaude
+# 3. Test with: myclaude
 EOF
     log_success ".env file created at $INSTALL_DIR/.env"
-    log_warn "IMPORTANT: Edit $INSTALL_DIR/.env and add your NVIDIA API keys!"
+    log_warn "NEXT STEP: Edit $INSTALL_DIR/.env and add your actual NVIDIA API keys"
 }
 
 build_config() {
@@ -277,7 +329,8 @@ setup_https() {
     log_info "Setting up HTTPS with Let's Encrypt for $TLS_DOMAIN..."
 
     if ! command -v certbot >/dev/null 2>&1; then
-        apt-get update && apt-get install -y certbot python3-certbot-nginx
+        apt-get update -qq >/dev/null 2>&1
+        apt-get install -y certbot python3-certbot-nginx >/dev/null 2>&1
     fi
 
     certbot --nginx -d "$TLS_DOMAIN" --non-interactive --agree-tos --email "admin@$TLS_DOMAIN" --redirect
@@ -340,8 +393,8 @@ verify_installation() {
 print_summary() {
     echo
     echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}        MyClaude Installation Complete!${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}        MyClaude One-Command Installation Complete!${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
     echo
     echo -e "Installation directory: ${GREEN}$INSTALL_DIR${NC}"
     echo -e "Service user:           ${GREEN}$SERVICE_USER${NC}"
@@ -352,10 +405,11 @@ print_summary() {
         echo -e "TLS Domain:             ${GREEN}$TLS_DOMAIN${NC}"
     fi
     echo
-    echo -e "${YELLOW}NEXT STEPS:${NC}"
-    echo "  1. Edit $INSTALL_DIR/.env and add your NVIDIA API keys"
-    echo "  2. Run: sudo systemctl restart myclaude"
-    echo "  3. Test with: myclaude"
+    echo -e "${YELLOW}NEXT STEPS (REQUIRED):${NC}"
+    echo "  1. Edit $INSTALL_DIR/.env and replace placeholder NVIDIA API keys with your actual keys"
+    echo "  2. Get keys from: https://build.nvidia.com/"
+    echo "  3. Run: sudo systemctl restart myclaude"
+    echo "  4. Test with: myclaude"
     echo
     echo -e "${CYAN}Useful commands:${NC}"
     echo "  myclaude                    # Launch Claude Code via proxy"
@@ -368,7 +422,8 @@ print_summary() {
 main() {
     parse_args "$@"
     check_root
-    check_dependencies
+    check_existing_installation
+    install_dependencies
     create_directories
     discover_ports
     install_python_deps

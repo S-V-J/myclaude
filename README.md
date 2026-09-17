@@ -22,16 +22,43 @@ MyClaude is a smart launcher and proxy system for MyClaude Code that routes requ
 - nginx with SSL module
 - curl, jq, and other standard Linux utilities
 - Domain name for HTTPS setup (optional)
+- NVIDIA API keys (get from https://build.nvidia.com/)
 
 ## Installation
 
-### Quick Start
+### One-Command Install (Recommended)
 
 ```bash
-sudo apt update && sudo apt install -y nginx curl jq python3 python3-venv
 git clone https://your-repo/your-myclaude-project.git ~/myclaude
 cd ~/myclaude
-sudo ./install.sh --dir $HOME/myclaude --user myclaude
+sudo ./install.sh
+```
+
+That's it! The installation script automatically:
+- Installs all system dependencies (nginx, python3, certbot, etc.)
+- Discovers free ports to avoid conflicts
+- Creates Python virtual environment and installs dependencies
+- Generates configuration with dynamic ports
+- Sets up systemd service for LiteLLM proxy
+- Configures nginx reverse proxy with rate limiting
+- Starts all services
+
+**After installation completes:**
+1. Edit `~/myclaude/.env` and replace placeholder NVIDIA API keys with your actual keys
+2. Run: `sudo systemctl restart myclaude`
+3. Test with: `myclaude`
+
+### Quick Start with Options
+
+```bash
+# Install with custom directory and user
+sudo ./install.sh --dir /opt/myclaude --user myclaude
+
+# Install with HTTPS (Let's Encrypt)
+sudo ./install.sh --https --domain api.example.com
+
+# Skip dependency installation (if already installed)
+sudo ./install.sh --no-deps
 ```
 
 ### Detailed Steps
@@ -154,7 +181,7 @@ Smart launcher that:
 myclaude
 
 # Launch Claude Code via MyClaude proxy
-myclaude --model claude-opus-5
+myclaude --model claude-sonnet-5
 ```
 
 ### Service Management
