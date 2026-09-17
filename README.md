@@ -29,7 +29,7 @@ MyClaude is a smart launcher and proxy system for MyClaude Code that routes requ
 ### One-Command Install (Recommended)
 
 ```bash
-git clone https://your-repo/your-myclaude-project.git ~/myclaude
+git clone https://github.com/S-V-J/myclaude.git ~/myclaude
 cd ~/myclaude
 sudo ./install.sh
 ```
@@ -71,7 +71,7 @@ sudo ./install.sh --no-deps
 
 2. **Clone repository**:
    ```bash
-   git clone https://your-repo/your-myclaude-project.git ~/myclaude
+   git clone https://github.com/S-V-J/myclaude.git ~/myclaude
    ```
 
 3. **Run installation script** (ports auto-discovered):
