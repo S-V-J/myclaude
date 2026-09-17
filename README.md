@@ -103,6 +103,7 @@ The `install.sh` script (443 lines) is the **complete automation engine**. Key f
 | `parse_args()` | Handles CLI flags and environment variables |
 | `check_root()` | Enforces sudo execution |
 | `install_dependencies()` | Installs nginx, python3, certbot, etc. via apt |
+| `apt` |
 | `check_existing_installation()` | Warns if target directory not empty |
 | `create_directories()` | Creates install dir, venv, logs, nginx log dir |
 | `discover_ports()` | Finds free ports using `ss -tuln` (8000–50000) |
