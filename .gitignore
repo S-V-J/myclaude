@@ -32,6 +32,7 @@ logs/
 *.sqlite3
 
 # Environment files (keep template, not actual values)
+.env
 .env.example
 
 # IDE
