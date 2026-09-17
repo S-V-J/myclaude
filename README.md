@@ -15,6 +15,16 @@ MyClaude is a smart launcher and proxy system for MyClaude Code that routes requ
 
 **No fixed ports** - MyClaude automatically discovers and uses free ports at install time to avoid conflicts with other running applications. This prevents the common issue where fixed ports are already in use by other services.
 
+## Sponsor Support
+
+If you find this project useful, please consider sponsoring its development:
+
+<a href="https://github.com/sponsors/S-V-J">
+  <img src="https://github.com/sponsors/S-V-J/button" alt="Sponsor S-V-J" height="32" width="114" style="border: 0; border-radius: 6px;">
+</a>
+
+<iframe src="https://github.com/sponsors/S-V-J/card" title="Sponsor S-V-J" height="225" width="600" style="border: 0;"></iframe>
+
 ## Prerequisites
 
 - Root access (sudo) for nginx, systemd, and nginx configuration
@@ -29,7 +39,7 @@ MyClaude is a smart launcher and proxy system for MyClaude Code that routes requ
 ### One-Command Install (Recommended)
 
 ```bash
-git clone https://your-repo/your-myclaude-project.git ~/myclaude
+git clone https://github.com/S-V-J/myclaude.git ~/myclaude
 cd ~/myclaude
 sudo ./install.sh
 ```
@@ -71,7 +81,7 @@ sudo ./install.sh --no-deps
 
 2. **Clone repository**:
    ```bash
-   git clone https://your-repo/your-myclaude-project.git ~/myclaude
+   git clone https://github.com/S-V-J/myclaude.git ~/myclaude
    ```
 
 3. **Run installation script** (ports auto-discovered):
@@ -221,6 +231,18 @@ Restore backup:
 ```bash
 sudo ./utils/backup.sh restore /tmp/myclaude-backups/myclaude-backup-20240128_123456.tar.gz
 ```
+
+## Repository URLs
+
+- HTTPS: https://github.com/S-V-J/myclaude.git
+- SSH: git@github.com:S-V-J/myclaude.git
+- GitHub CLI: gh repo clone S-V-J/myclaude
+
+## Project Links
+
+- GitHub Repository: https://github.com/S-V-J/myclaude
+- Sponsor Button Documentation: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+- Sponsor Profile: https://github.com/sponsors/S-V-J
 
 ## License
 
