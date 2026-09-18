@@ -258,35 +258,21 @@ build_config() {
 }
 
 install_systemd_service() {
-    log_info "Installing systemd service..."
-    cat > /etc/systemd/system/myclaude.service <<EOF
-[Unit]
-Description=MyClaude LiteLLM Proxy
-After=network.target
-Wants=network.target
+    log_info "Installing systemd service from template..."
 
-[Service]
-Type=simple
-User=${SERVICE_USER}
-WorkingDirectory=${INSTALL_DIR}
-Environment=PATH=${INSTALL_DIR}/venv/bin:/usr/local/bin:/usr/bin:/bin
-EnvironmentFile=-${INSTALL_DIR}/.env
-ExecStart=${INSTALL_DIR}/venv/bin/litellm --config ${INSTALL_DIR}/config.yaml --port ${LITELLM_PORT} --host 127.0.0.1
-Restart=on-failure
-RestartSec=5
-StandardOutput=append:${INSTALL_DIR}/logs/litellm.log
-StandardError=append:${INSTALL_DIR}/logs/litellm.log
+    # Check if template exists
+    if [[ ! -f "${INSTALL_DIR}/litellm.service.template" ]]; then
+        log_error "litellm.service.template not found in ${INSTALL_DIR}"
+        exit 1
+    fi
 
-# Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=${INSTALL_DIR}/logs
+    # Process template with actual values
+    sed -e "s|__SERVICE_USER__|${SERVICE_USER}|g" \
+        -e "s|__REPO_DIR__|${INSTALL_DIR}|g" \
+        -e "s|__VENV_DIR__|${INSTALL_DIR}/venv|g" \
+        -e "s|__PORT__|${LITELLM_PORT}|g" \
+        "${INSTALL_DIR}/litellm.service.template" > /etc/systemd/system/myclaude.service
 
-[Install]
-WantedBy=multi-user.target
-EOF
     systemctl daemon-reload
     log_success "Systemd service installed on port ${LITELLM_PORT}"
 }

@@ -18,7 +18,25 @@ MyClaude is a production-ready, smart launcher and proxy system for Claude Code 
 | **Installation** | True one-command: `git clone + sudo ./install.sh` |
 
 ---
-
+ 
+## Table of Contents
+ 
+1. [Overview](#overview)
+2. [About the Creator](#about-the-creator)
+3. [Sponsor Support](#sponsor-support)
+4. [Prerequisites](#prerequisites)
+5. [Installation](#installation)
+6. [Core System Files](#core-system-files)
+7. [Usage](#usage)
+8. [Advanced Configuration](#advanced-configuration)
+9. [Troubleshooting](#troubleshooting)
+10. [Repository URLs](#repository-urls)
+11. [Architecture Diagram](#architecture-diagram)
+12. [Security Features](#security-features)
+13. [License](#license)
+ 
+---
+ 
 ## About the Creator
 
 ### Siddhant Kumar
