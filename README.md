@@ -21,18 +21,7 @@ MyClaude is a production-ready, smart launcher and proxy system for Claude Code 
 
 ## Sponsor Support
 
-[![Sponsor S-V-J](https://img.shields.io/badge/Sponsor%20on%20GitHub-Support%20this%20project-eb4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/S-V-J)
-
-If you find this project useful, please consider sponsoring its development:
-
-[![Sponsor S-V-J](https://github.com/sponsors/S-V-J/button)](https://github.com/sponsors/S-V-J)
-
-<details>
-<summary><strong>View Sponsor Card</strong> (click to expand)</summary>
-
-[![Sponsor S-V-J Card](https://github.com/sponsors/S-V-J/card)](https://github.com/sponsors/S-V-J)
-
-</details>
+If you find this project useful, please consider sponsoring its development: [![Sponsor S-V-J](https://img.shields.io/badge/Sponsor%20on%20GitHub-Support%20this%20project-eb4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/S-V-J)
 
 *Even a small contribution (e.g., $2) or a ⭐ star on this repository is highly appreciated. Thank you for believing in practical, open-source engineering!*
 
