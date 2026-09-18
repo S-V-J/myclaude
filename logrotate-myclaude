@@ -3,7 +3,7 @@
 # Note: Paths will be replaced at install time with actual REPO_DIR
 
 # LiteLLM application logs
-__REPO_DIR__/litellm.log {
+__REPO_DIR__/logs/litellm.log {
     daily
     rotate 14
     compress

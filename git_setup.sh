@@ -8,7 +8,7 @@ echo "Setting up git repository..."
 # Initialize git if needed
 if [ ! -d .git ]; then
     git init
-    git branch -M main
+    git branch -M master
 fi
 
 # Add all files except protected ones and .env

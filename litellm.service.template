@@ -1,26 +1,82 @@
 [Unit]
-Description=MyClaude LiteLLM Proxy
-After=network.target
-Wants=network.target
+Description=LiteLLM Proxy for MyClaude (NVIDIA NIM)
+Documentation=https://docs.litellm.ai/
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
+
+# User and permissions
 User=__SERVICE_USER__
+Group=__SERVICE_USER__
 WorkingDirectory=__REPO_DIR__
-Environment=PATH=__VENV_DIR__/bin:/usr/local/bin:/usr/bin:/bin
-EnvironmentFile=-__REPO_DIR__/.env
-ExecStart=__VENV_DIR__/bin/litellm --config __REPO_DIR__/config.yaml --port __PORT__ --host 127.0.0.1
-Restart=on-failure
-RestartSec=5
-StandardOutput=append:__REPO_DIR__/logs/litellm.log
-StandardError=append:__REPO_DIR__/logs/litellm.log
+
+# Environment
+EnvironmentFile=__REPO_DIR__/.env
+Environment="PORT=__PORT__"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="LITELLM_LOG_LEVEL=INFO"
+Environment="LITELLM_LOG_FORMAT=json"
 
 # Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
 ProtectHome=read-only
-ReadWritePaths=__REPO_DIR__/logs
+ReadWritePaths=__REPO_DIR__
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=no
+PrivateDevices=no
+ProtectProc=full
+ProcSubset=all
+
+# Capabilities (drop all, add only needed)
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=infinity
+MemoryMax=infinity
+MemoryHigh=infinity
+CPUQuota=200%
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+TasksMax=infinity
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=255
+
+# Startup
+ExecStartPre=/bin/bash -c 'test -f __REPO_DIR__/config.yaml || exit 1'
+ExecStartPre=/bin/bash -c 'test -r __REPO_DIR__/.env || exit 1'
+ExecStart=__VENV_DIR__/bin/litellm --config __REPO_DIR__/config.yaml --port __PORT__ --host 0.0.0.0
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=myclaude-litellm
+
+# Reload signal
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=30
+TimeoutStartSec=60
 
 [Install]
 WantedBy=multi-user.target
