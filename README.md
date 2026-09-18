@@ -797,16 +797,26 @@ With **5+ years** of professional experience in telecom operations and enterpris
 
 | Project | Description | Stack |
 |---------|-------------|-------|
-| **Spotter Universal ML Platform** | Freetrate forecasting: LightGBM regressor on ~48K records, 5.65% MAPE, Next.js + FastAPI, Dockerized | LightGBM, FastAPI, Next.js, Docker |
+| **MyClaude** | Smart launcher and proxy system for Claude Code using LiteLLM with NVIDIA NIM model integration | LiteLLM, NVIDIA NIM, systemd, nginx, Python, Bash |
+| **sasyashri** | Personal portfolio and projects showcase | HTML, CSS, JavaScript |
+| **CommBank-Server** | Fork of CommBank tech stack from Forage job simulation - for debugging purposes | Java, Spring Boot |
+| **ominivoice** | Advanced Multilingual Voice Agent Platform with Real-time Translation capabilities | Python, VAPI, Twilio, WebRTC |
+| **voice-agent** | AI-powered outbound sales agent with VAPI, Twilio, and retell.ai integrations for cold calling | Python, VAPI, Twilio, retell.ai |
+| **premura-app** | Healthcare appointment and patient management system | React, Node.js, MongoDB |
+| **fuelroute-pro** | AI-powered fuel route optimization and cost savings platform for logistics | Python, OR-Tools, FastAPI, React |
+| **mycode** | Personal code snippets, utilities, and learning projects | Python, JavaScript, Bash |
+| **premura-corp-live-build** | Corporate live build and deployment pipeline automation | Jenkins, Docker, Kubernetes |
+| **premura-ssh-test** | SSH automation and testing utilities for server management | Bash, Python, Paramiko |
+| **Spotter Universal ML Platform** | Freight rate prediction and optimization system using LightGBM regressor on ~48K records | LightGBM, FastAPI, Next.js, Docker |
 | **NexusHub** | All-in-one personal web hub: link-in-bio, URL shortener, todos, habits, code snippets, polls, feedback | Next.js, Supabase, Tailwind CSS |
-| **CRM Self-Healer** | Self-healing CRM sync engine for GoHighLevel: n8n → FastAPI (SHA-256 dedup) → schema-drift watcher → LLM auto-fix loop | n8n, FastAPI, Ollama, pytest |
-| **Universal E-Commerce System** | Interactive demo of adaptable e-commerce platform — product catalog, cart, storefront flows | React, FastAPI |
-| **AetherAgent** | Fully local AI agent on Linux — no context limit, 100% prompt-faithful. Decoder-only transformer from zero weights in PyTorch, LoRA fine-tuning, SSE streaming | PyTorch, LoRA, SSE |
-| **PBX-Platform** | Enterprise multi-tenant PBX: Asterisk + Kamailio + Python/FastAPI + PostgreSQL — 12 microservices, 76-table schema, JWT auth, RBAC | Asterisk, Kamailio, FastAPI, PostgreSQL |
-| **devops** | DevOps UI Management Platform: Spring Boot 3.2 + React 18, fine-grained RBAC, JWT, Swagger, GitHub Actions CI/CD | Spring Boot, React, Docker |
-| **CloudDevStudio** | Self-hosted web-based Linux development platform: browser IDE, terminal, AI coding assistance, database tooling | Next.js, Docker, Linux |
-| **Reeja** | Complete wholesale/retail business management with integrated eCommerce — inventory, billing, customers, storefront | Full-stack |
-| **zero2hero** | Educational course: Zero to Hero in Full Stack, VoIP, and AI Engineering — 10 production apps from scratch | Linux, C/C++, Python, AI/ML, Asterisk, Kamailio, DevSecOps |
+| **Universal E-Commerce System** | Adaptable platform for online stores with product catalog, cart, and checkout flows | React, FastAPI, PostgreSQL |
+| **CRM Self-Healer** | Automated CRM data synchronization and repair system for GoHighLevel with self-healing capabilities | n8n, FastAPI, Ollama, pytest |
+| **practice-live-build** | Live coding practice platform with real-time collaboration and feedback | React, Socket.io, Node.js |
+| **zero2hero** | Comprehensive full-stack development course with 10 production projects from scratch | Linux, C/C++, Python, AI/ML, Asterisk, Kamailio, DevSecOps |
+| **AetherAgent** | Fully local AI agent on Linux with no context limits, 100% prompt-faithful decoder-only transformer | PyTorch, LoRA, SSE, Hugging Face |
+| **devops** | DevOps UI Management Platform with Spring Boot 3.2 + React 18, fine-grained RBAC, JWT, Swagger, GitHub Actions CI/CD | Spring Boot, React, Docker, Kubernetes |
+| **PBX-Platform** | Enterprise multi-tenant PBX platform: Asterisk + Kamailio + Python/FastAPI + PostgreSQL — 12 microservices, 76-table schema | Asterisk, Kamailio, FastAPI, PostgreSQL, Python |
+| **CloudDevStudio** | Self-hosted web-based Linux development platform: browser IDE, terminal, AI coding assistance, database tooling | Next.js, Docker, Linux, Theia |
 
 #### Internships
 - **Renesas RL78 Microcontroller** \| SM Electronic Technologies Pvt. Ltd, Bangalore  \|  *Jan 2020 – Apr 2020* — Certificate issued Nov 3, 2020
