@@ -19,6 +19,134 @@ MyClaude is a production-ready, smart launcher and proxy system for Claude Code 
 
 ---
 
+## About the Creator
+
+### Siddhant Kumar
+**Full-Stack Developer | VoIP & Telephony Engineer | AI Developer | Technical Support**  
+📞 +91 8095875948  |  ✉️ stjl093@gmail.com  |  📍 Bihar, India  
+🔗 **GitHub**: [github.com/S-V-J](https://github.com/S-V-J)  |  **LinkedIn**: [linkedin.com/in/sid-093](https://linkedin.com/in/sid-093)  
+✅ **Available for global remote roles**  |  **Full-time (up to 40 hrs/week)**  
+*Employment, education, and certificates verifiable at LinkedIn*
+
+#### Professional Summary
+With **5+ years** of professional experience in telecom operations and enterprise technical support, and **1+ years** of intensive full-stack, VoIP, and AI development through successfully delivered contracts for clients in **Switzerland, Germany, and India**. Deep domain expertise in telephony infrastructure from **TELUS Digital** (Canada's largest telecom provider), now applied to building production-grade systems — from Asterisk/Kamailio PBX configuration and Python/FastAPI backends to React frontends, LLM-powered AI pipelines, and cloud deployment. Published researcher, active open-source developer, and contributor to AI model training and evaluation. Available immediately for remote roles, up to 40 hours/week.
+
+#### Open to Global Remote Roles
+- **Software Engineering**: Full-Stack Developer | Backend Engineer
+- **AI & Automation**: AI System Developer | Chat + Voice AI Bot Developer
+- **AI Trainer**: AI Model Trainer / AI Training Task / AI Evaluator
+- **Infrastructure & Networks**: DevOps / Platform Engineer | VoIP Engineer | Network Engineer
+- **Operations & Support**: Technical Support | Desktop Support | Helpdesk Engineer
+
+#### Technical Skills
+| Category | Technologies |
+|----------|-------------|
+| **VoIP & Telephony** | Asterisk, Kamailio \| SIP, ISUP, RTP/RTCP \| Telephony Switches & Trunking \| .pcap Analysis |
+| **Languages** | Python (primary), C, C++, JavaScript, TypeScript, Java, Bash scripting |
+| **Backend** | FastAPI, Flask, Django \| Node.js / Express.js \| Spring Boot 3.2 (Java) |
+| **Frontend** | React 18, Next.js, Vue.js, HTML5, CSS3, Tailwind CSS |
+| **AI & LLM** | LLM APIs & Local Deployment \| Agentic Orchestration \| Model Fine-Tuning & Evaluation \| Classical ML (LightGBM, Scikit-Learn) |
+| **Databases** | PostgreSQL, MySQL, MongoDB, Redis, Elasticsearch |
+| **Cloud & Infrastructure** | AWS (EC2, S3, Lambda, VPC), Hetzner Cloud, Linux Ubuntu / RHEL, Nginx, systemd |
+| **DevOps** | Docker, Kubernetes, Terraform, Ansible, GitHub Actions, GitLab CI/CD |
+| **Tools & CRM** | Git, Wireshark, ServiceNow, Lynx, SAP, MSD 365, TeamViewer, AnyDesk, Rescue, Outlook, Excel |
+| **Languages Spoken** | English (C1+ Professional — B2C and B2B including Canadian clients) \| Hindi (Native) |
+
+#### Professional Experience
+
+**Full-Time Employment**
+
+**Network Associate** \| **TELUS Digital** — Canada  \|  *Jan 2022 – Aug 2025 (3 yrs 8 months)*  \|  Remote  
+- Command-based programming, testing, and troubleshooting of telephony switches GTD 5 and DMS 100 — maintaining enterprise telephony infrastructure for Canada's largest telecom provider.  
+- Resolved SIP and ISUP call-related issues and SIP trunking service problems — call tracing and .pcap file analysis using IRIS, CGIS, and Wireshark to diagnose protocol-level failures.  
+- CRM management with Lynx and ServiceNow — full incident lifecycle, escalation, RCA documentation, and professional English communication with Canadian business clients (B2B).  
+- Remote role: softphone-based calls, Outlook for client email, Excel for tracking and data entry.
+
+**Technical Support Advisor I** \| **Concentrix**  \|  *Feb 2021 – Oct 2021 (9 months)*  \|  Office + Remote  
+- Technical support for laptops and desktops — hardware faults (RAM, HDD, display, keyboard, power supply) and inbuilt software issues (OS, drivers, applications) for consumer and enterprise customers.  
+- Remote access tools: Rescue, TeamViewer, AnyDesk — full remote device control for live diagnosis and repair.  
+- CRM: SAP and MSD — case logging, escalation, and resolution documentation.  
+- On-call 9-hour shifts in professional English and Hindi; B2C support via both soft and hard phones; Outlook for email; Excel for data entry and call reporting.
+
+**Contract Engagements**
+
+**VoIP AI Integration Engineer** \| **Basal Analytics Pvt. Ltd** (desible.ai)  \|  *Dec 2025 — 30-day delivery*  
+- Configured Asterisk PBX with the AudioSocket module and wrote a Python WebSocket client bridging live calls to Desible AI's voice AI engine — enabling real-time AI handling of answered outbound calls.  
+- Architecture: outbound calls originated by partner company, routed to this Asterisk endpoint; calls transferred to AI on answer — full end-to-end outbound AI call pipeline.  
+- Deployed and configured on AWS EC2 (Linux Ubuntu); SIP trunk setup for call origination partner.  
+- Stack: Asterisk, AudioSocket, Python, WebSocket, SIP trunk, AWS EC2, Linux Ubuntu, Kamailio
+
+**AI Backend Developer** \| **Raiva** — Germany (raiva.io)  \|  *Oct 2025 – Jan 2026 (4 months)*  
+- Built a document indexing and search portal enabling users to query large document repositories by both text input and real-time voice — semantic NLP search with conversational AI responses and live voice chat.  
+- Integrated OpenAI API for NLU query processing, Whisper for voice-to-text, and real-time conversational AI for document-grounded dialogue.  
+- Deployed on Hetzner Cloud (Linux Ubuntu); REST API backend with web portal frontend.  
+- Stack: Python, OpenAI API, Linux Ubuntu, Hetzner Cloud, document indexing, semantic search, REST API, Conversational AI, real-time voice, PostgreSQL
+
+**VoIP Engineer** \| **Lancelot Technology** (lancelotech.com)  \|  *Aug – Sep 2025 — 45-day delivery*  
+- Configured Asterisk and Kamailio PBX across two separate Ubuntu servers with a custom admin panel for complete PBX management — extension provisioning, call routing, tenant management.  
+- Designed and implemented multilingual IVR with voice and language detection and voice prompt playback for intelligent caller input routing.  
+- Configured SIP trunks on both servers; full project delivered within 45 days.  
+- Stack: Asterisk, Kamailio, Linux Ubuntu (2 servers), SIP trunk, IVR, voice prompt, language detection, Python, Bash, admin panel development
+
+**VoIP & PBX Engineer** \| **IWALINK SA** — Switzerland  \|  *May – Jun 2025 — 51-day delivery*  
+- Configured Asterisk PBX on hosted hard server — softphone login, inbound/outbound calls, voicemail, IVR system, and SIP trunk integration delivered from scratch.  
+- Wrote Bash automation scripts and Python AGI (Asterisk Gateway Interface) programs for dynamic call routing logic and IVR intelligence.  
+- Developed an admin panel for ongoing PBX management — extension control, call routing, SIP trunk status, IVR menu editing.  
+- Stack: Asterisk, SIP trunk, IVR, AGI (Python), Bash scripting, Linux Ubuntu, .conf file management, softphone, voicemail, admin panel (Python/web)
+
+#### Personal Projects (GitHub: [github.com/S-V-J](https://github.com/S-V-J))
+
+| Project | Description | Stack |
+|---------|-------------|-------|
+| **Spotter Universal ML Platform** | Freight rate forecasting: LightGBM regressor on ~48K records, 5.65% MAPE, Next.js + FastAPI, Dockerized | LightGBM, FastAPI, Next.js, Docker |
+| **NexusHub** | All-in-one personal web hub: link-in-bio, URL shortener, todos, habits, code snippets, polls, feedback | Next.js, Supabase, Tailwind CSS |
+| **CRM Self-Healer** | Self-healing CRM sync engine for GoHighLevel: n8n → FastAPI (SHA-256 dedup) → schema-drift watcher → LLM auto-fix loop | n8n, FastAPI, Ollama, pytest |
+| **Universal E-Commerce System** | Interactive demo of adaptable e-commerce platform — product catalog, cart, storefront flows | React, FastAPI |
+| **AetherAgent** | Fully local AI agent on Linux — no context limit, 100% prompt-faithful. Decoder-only transformer from zero weights in PyTorch, LoRA fine-tuning, SSE streaming | PyTorch, LoRA, SSE |
+| **PBX-Platform** | Enterprise multi-tenant PBX: Asterisk + Kamailio + Python/FastAPI + PostgreSQL — 12 microservices, 76-table schema, JWT auth, RBAC | Asterisk, Kamailio, FastAPI, PostgreSQL |
+| **devops** | DevOps UI Management Platform: Spring Boot 3.2 + React 18, fine-grained RBAC, JWT, Swagger, GitHub Actions CI/CD | Spring Boot, React, Docker |
+| **CloudDevStudio** | Self-hosted web-based Linux development platform: browser IDE, terminal, AI coding assistance, database tooling | Next.js, Docker, Linux |
+| **Reeja** | Complete wholesale/retail business management with integrated eCommerce — inventory, billing, customers, storefront | Full-stack |
+| **zero2hero** | Educational course: Zero to Hero in Full Stack, VoIP, and AI Engineering — 10 production apps from scratch | Linux, C/C++, Python, AI/ML, Asterisk, Kamailio, DevSecOps |
+
+#### Internships
+- **Renesas RL78 Microcontroller** \| SM Electronic Technologies Pvt. Ltd, Bangalore  \|  *Jan 2020 – Apr 2020* — Certificate issued Nov 3, 2020
+- **C Programming and Embedded Systems** \| Acharya Institute of Technology (ECE Dept), Bangalore  \|  *Jan 16–31, 2017* — USN: 1AY15EC093
+
+#### Research Publication
+**Intelligent Line Follower Robot using MSP430G2ET for Industrial Applications**  
+Journal: *Helix — The Scientific Explorer*, Vol. 10 (2): pp. 232–237, Apr 2020  
+DOI: [doi.org/10.29042/2020-10-2-232-237](https://doi.org/10.29042/2020-10-2-232-237)  
+Authors: Sourav Sutradhar, Viswanatha V, **Siddhant Kumar**, Shivam Kumar — Acharya Institute of Technology, Bangalore  
+Presented at: AICTE-Sponsored ISCCS 2019, Sree Vidyanikethan Engineering College, Tirupati, AP — 17–19 Oct 2019
+
+#### Education
+| Degree | Institution | Completed |
+|--------|-------------|-----------|
+| **BE — Electronics & Communication Engineering** (Second Class) | Visvesvaraya Technological University (VTU), Belagavi, Karnataka | Jan 2023 |
+| **12th Board — Science (PCM)** (First Class) | Bihar School Examination Board (BSEB) | Apr 2015 |
+| **10th Board — CBSE** (First Class) | Central Board of Secondary Education (CBSE) | May 2013 |
+
+#### Certifications
+| Certification | Issuer | Date | Link |
+|---------------|--------|------|------|
+| 2024 Bootcamp: Generative AI + LLM App Development | Udemy (Julio Colomer) | Sep 2024 — 61 hrs | [Verify](https://www.udemy.com/certificate/) |
+| Introduction to Cybersecurity | Cisco | Mar 2024 | [Verify](https://www.cisco.com/) |
+| Getting Started with Cisco Packet Tracer | Cisco Networking Academy | 2024 | [Verify](https://www.netacad.com/) |
+| Pointers, Arrays, and Recursion | Duke University (Coursera) | Dec 2020 | [Verify](https://www.coursera.org/) |
+| The Bits and Bytes of Computer Networking | Google (Coursera) | Jul 2020 — 21 hrs | [Verify](https://www.coursera.org/) |
+| Writing, Running, and Fixing Code in C | Duke University (Coursera) | Jun 2020 — 20 hrs | [Verify](https://www.coursera.org/) |
+| Technical Support Fundamentals | Google (Coursera) | May 2020 — 19 hrs | [Verify](https://www.coursera.org/) |
+| Programming Fundamentals | Duke University (Coursera) | May 2020 — 18 hrs | [Verify](https://www.coursera.org/) |
+| C Programming and Embedded Systems | Acharya Institute of Technology (ECE) | Jan 2017 | — |
+| Conference Paper Presentation — ISCCS 2019 | AICTE-Sponsored International Conference | Oct 2019 | [Verify](https://www.aicte-india.org/) |
+| Introduction to Software Engineering Job Simulation | Commonwealth Bank (Forage) | Sep 1, 2026 | [Verify](https://www.theforage.com/) |
+| Software Engineering Job Simulation | Hewlett Packard Enterprise (Forage) | Sep 1, 2026 | [Verify](https://www.theforage.com/) |
+
+> **Verify everything**: [linkedin.com/in/sid-093](https://linkedin.com/in/sid-093) \| [github.com/S-V-J](https://github.com/S-V-J) \| [stjl093@gmail.com](mailto:stjl093@gmail.com)
+
+---
+
 ## Sponsor Support
 
 [![Sponsor S-V-J](https://img.shields.io/badge/Sponsor%20on%20GitHub-Support%20this%20project-eb4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/S-V-J)
