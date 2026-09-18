@@ -642,40 +642,56 @@ WantedBy=multi-user.target
 
 ### Basic Usage
 
+**Recommended: Shell Integration** (add to `~/.bashrc` or `~/.zshrc` for seamless experience)
+
 ```bash
-# Launch MyClaude proxy (starts services if needed, then runs Claude Code)
-myclaude
+# 1. Service management command
+myclaude() {
+    if [ -f "$HOME/myclaude/myclaude.sh" ]; then
+        bash "$HOME/myclaude/myclaude.sh" "$@"
+    else
+        echo "❌ myclaude.sh not found."
+    fi
+}
 
-# Launch with specific model
-myclaude --model claude-sonnet-5
+# 2. Smart Claude wrapper — auto-connects to proxy in ANY new terminal
+claude() {
+    if [ -f "$HOME/myclaude/.nginx_port" ]; then
+        local port=$(cat "$HOME/myclaude/.nginx_port" 2>/dev/null)
+        local master_key=$(grep LITELLM_MASTER_KEY "$HOME/myclaude/.env" 2>/dev/null | cut -d= -f2 | tr -d '"')
 
-# Any Claude Code arguments are passed through
-myclaude --help
-myclaude --version
+        if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$port/health" 2>/dev/null | grep -q "200"; then
+            export ANTHROPIC_API_KEY="$master_key"
+            export ANTHROPIC_BASE_URL="http://127.0.0.1:$port"
+            export OPENAI_API_KEY="$master_key"
+            export OPENAI_BASE_URL="http://127.0.0.1:$port"
+            echo "🔗 [MyClaude] Connected to local proxy on port $port"
+        else
+            echo "⚠️  [MyClaude] Proxy port $port is not responding. Run 'myclaude start' first."
+        fi
+    else
+        echo "⚠️  [MyClaude] Proxy is not running. Run 'myclaude start' first."
+    fi
+
+    command claude "$@"
+}
 ```
 
-### Service Management
+After adding the above and running `source ~/.bashrc` (or opening a new terminal):
 
 ```bash
-# Check service status
-sudo systemctl status myclaude
+# Start the proxy (run once per session or after reboot)
+myclaude start
 
-# View service logs (follow)
-sudo journalctl -u myclaude -f
+# Launch Claude Code — auto-connects to proxy
+claude
 
-# Check MyClaude status (reads dynamic ports from .env)
-./utils/status.sh
+# Launch with specific model
+claude --model claude-sonnet-5
 
-# View application logs
-tail -f ~/myclaude/logs/litellm.log
-
-# Restart services
-sudo systemctl restart myclaude nginx
-
-# Stop services
-myclaude stop
-# or
-sudo systemctl stop myclaude nginx
+# Any Claude Code arguments are passed through
+claude --help
+claude --version
 ```
 
 ### Configuration Management

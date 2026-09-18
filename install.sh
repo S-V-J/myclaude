@@ -13,9 +13,28 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# ============================================================
+# CRITICAL: Capture ORIGINAL user context BEFORE any sudo operations
+# When script runs with sudo, $HOME=/root and $USER=root, breaking paths
+# Use SUDO_USER (set by sudo) or logname to get the real user
+# ============================================================
+ORIGINAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo "")}"
+if [[ -z "$ORIGINAL_USER" || "$ORIGINAL_USER" == "root" ]]; then
+    # Fallback: try to detect from /home directory if only one user exists
+    ORIGINAL_USER=$(ls /home 2>/dev/null | head -1 || echo "")
+fi
+
+if [[ -z "$ORIGINAL_USER" ]]; then
+    log_error "Could not determine original user. Please set MYCLAUDE_SERVICE_USER environment variable."
+    exit 1
+fi
+
+ORIGINAL_HOME="/home/${ORIGINAL_USER}"
+
 # Defaults - can be overridden by environment variables or command line
-INSTALL_DIR="${MYCLAUDE_INSTALL_DIR:-$HOME/myclaude}"
-SERVICE_USER="${MYCLAUDE_SERVICE_USER:-$USER}"
+# Use ORIGINAL_HOME/ORIGINAL_USER to preserve correct paths under sudo
+INSTALL_DIR="${MYCLAUDE_INSTALL_DIR:-${ORIGINAL_HOME}/myclaude}"
+SERVICE_USER="${MYCLAUDE_SERVICE_USER:-${ORIGINAL_USER}}"
 ENABLE_HTTPS="${MYCLAUDE_ENABLE_HTTPS:-false}"
 TLS_DOMAIN="${MYCLAUDE_TLS_DOMAIN:-}"
 AUTO_INSTALL_DEPS="${MYCLAUDE_AUTO_INSTALL_DEPS:-true}"
@@ -204,9 +223,29 @@ discover_ports() {
 install_python_deps() {
     log_info "Setting up Python virtual environment..."
     python3 -m venv "$INSTALL_DIR/venv"
-    "$INSTALL_DIR/venv/bin/pip" install --upgrade pip >/dev/null 2>&1
-    "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" >/dev/null 2>&1
-    log_success "Python dependencies installed"
+
+    # Verify venv was created successfully
+    if [[ ! -f "$INSTALL_DIR/venv/bin/pip" ]]; then
+        log_error "Virtual environment not created successfully"
+        exit 1
+    fi
+
+    log_info "Upgrading pip..."
+    if ! timeout 1000 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip 2>&1 | tee /tmp/pip_upgrade.txt; then
+        log_error "pip upgrade failed"
+        cat /tmp/pip_upgrade.txt
+        exit 1
+    fi
+    log_success "pip upgraded"
+
+    log_info "Installing Python dependencies... (this may take 1-3 minutes)"
+    if timeout 1000 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" 2>&1 | tee /tmp/pip_output.txt; then
+        log_success "Python dependencies installed"
+    else
+        log_error "Python dependencies installation failed"
+        cat /tmp/pip_output.txt
+        exit 1
+    fi
 }
 
 generate_env_file() {
