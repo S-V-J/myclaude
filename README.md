@@ -834,23 +834,23 @@ With **5+ years** of professional experience in telecom operations and enterpris
 
 #### Personal Projects
 
-| Project | Description | Stack |
-|---------|-------------|-------|
-| **MyClaude** | [myclaude](https://github.com/S-V-J/myclaude) - Run Anthropic's Claude Code completely free on Linux! This lightweight API proxy translates Claude Code requests into OpenAI-compatible formats, routing them directly to NVIDIA NIM. | Shell, Python, Docker |
-| **Spotter Universal ML Platform** | [spotter-freight-rate-ml](https://github.com/S-V-J/spotter-freight-rate-ml) - A production-ready, domain-agnostic Machine Learning Workbench designed to orchestrate the entire ML lifecycle. | LightGBM, FastAPI, Next.js, Docker |
-| **NexusHub** | [nexushub](https://github.com/S-V-J/nexushub) - All-in-one personal web command center: link-in-bio, URL shortener, todos, habits, code snippets, polls, and feedback. Built with Next.js, Supabase, and Tailwind CSS. | Next.js, Supabase, Tailwind CSS |
-| **CRM Self-Healer** | [crm-self-healer](https://github.com/S-V-J/crm-self-healer) - Self-healing CRM sync engine for GoHighLevel: n8n → FastAPI (SHA-256 dedup) → schema-drift watcher → LLM auto-fix loop | n8n, FastAPI, Ollama, pytest |
-| **Universal E-Commerce System** | [ecom_web_app](https://github.com/S-V-J/ecom_web_app) - Interactive demo of adaptable e-commerce platform with product catalog, cart, and storefront flows. | React, FastAPI |
-| **AetherAgent** | [AetherAgent](https://github.com/S-V-J/AetherAgent) - Fully local AI agent system on Linux with no context limit, 100% prompt-faithful. Features decoder-only transformer from zero weights in PyTorch with LoRA fine-tuning. | PyTorch, LoRA, SSE |
-| **DevOps Demo** | [devops](https://github.com/S-V-J/devops) - DevOps Demo Application - CI/CD Pipeline Demo featuring multi-stage Docker builds, Kubernetes orchestration, and monitoring. | Java, Spring Boot, React, Docker |
-| **Zero to Hero** | [zero2hero](https://github.com/S-V-J/zero2hero) - Educational course: Zero to Hero in Full Stack, VoIP, and AI Engineering — build 10 production apps using Linux, C/C++, Python, AI/ML, Asterisk, Kamailio, and DevSecOps. | Linux, C/C++, Python, AI/ML, Asterisk, Kamailio, DevSecOps |
-| **Fuel Route Pro** | [fuelroute-pro](https://github.com/S-V-J/fuelroute-pro) - Plan the cheapest fuel stops on any U.S. route using Python and optimization algorithms. | Python |
-| **MyCode** | [mycode](https://github.com/S-V-J/mycode) - Personal code repository with various Python projects and utilities. | Python |
-| **Premura Corp Live Build** | [premura-corp-live-build](https://github.com/S-V-J/premura-corp-live-build) - Test repo for Premura Interview with TypeScript applications. | TypeScript |
-| **Premura SSH Test** | [premura-ssh-test](https://github.com/S-V-J/premura-ssh-test) - SSH testing and configuration repository. | Shell |
-| **OminiVoice** | [ominivoice](https://github.com/S-V-J/ominivoice) - A platform for your voice agent with speech recognition and synthesis capabilities. | Python |
-| **Practice Live Build** | [practice-live-build](https://github.com/S-V-J/practice-live-build) - Live build and testing repository for various projects. | Multiple |
-| **CommBank Server** | [CommBank-Server](https://github.com/S-V-J/CommBank-Server) - A fork of CommBank-Server dedicated to identifying issues, debugging, and submitting downstream pull requests. | C# |
+| Project | Stack |
+|---------|-------|
+| [**MyClaude**](https://github.com/S-V-J/myclaude) | Shell, Python, Docker |
+| [**Spotter Universal ML Platform**](https://github.com/S-V-J/spotter-freight-rate-ml) | LightGBM, FastAPI, Next.js, Docker |
+| [**NexusHub**](https://github.com/S-V-J/nexushub) | Next.js, Supabase, Tailwind CSS |
+| [**CRM Self-Healer**](https://github.com/S-V-J/crm-self-healer) | n8n, FastAPI, Ollama, pytest |
+| [**Universal E-Commerce System**](https://github.com/S-V-J/ecom_web_app) | React, FastAPI |
+| [**AetherAgent**](https://github.com/S-V-J/AetherAgent) | PyTorch, LoRA, SSE |
+| [**DevOps Demo**](https://github.com/S-V-J/devops) | Java, Spring Boot, React, Docker |
+| [**Zero to Hero**](https://github.com/S-V-J/zero2hero) | Linux, C/C++, Python, AI/ML, Asterisk, Kamailio, DevSecOps |
+| [**Fuel Route Pro**](https://github.com/S-V-J/fuelroute-pro) | Python |
+| [**MyCode**](https://github.com/S-V-J/mycode) | Python |
+| [**Premura Corp Live Build**](https://github.com/S-V-J/premura-corp-live-build) | TypeScript |
+| [**Premura SSH Test**](https://github.com/S-V-J/premura-ssh-test) | Shell |
+| [**OminiVoice**](https://github.com/S-V-J/ominivoice) | Python |
+| [**Practice Live Build**](https://github.com/S-V-J/practice-live-build) | Multiple |
+| [**CommBank Server**](https://github.com/S-V-J/CommBank-Server) | C# |
 
 #### Internships
 - **Renesas RL78 Microcontroller** \| SM Electronic Technologies Pvt. Ltd, Bangalore  \|  *Jan 2020 – Apr 2020* — Certificate issued Nov 3, 2020
