@@ -109,6 +109,19 @@ check_root() {
     fi
 }
 
+# Detect Linux distribution
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        DISTRO_ID="${ID,,}"
+        DISTRO_VERSION="${VERSION_ID}"
+        return 0
+    else
+        log_error "Cannot detect Linux distribution (missing /etc/os-release)"
+        exit 1
+    fi
+}
+
 install_dependencies() {
     if [[ "$AUTO_INSTALL_DEPS" == "false" ]]; then
         log_info "Skipping dependency installation (--no-deps flag used)"
@@ -117,22 +130,73 @@ install_dependencies() {
 
     log_info "Installing system dependencies..."
 
+    detect_distro
+
+    # Define package names per distribution
+    case "$DISTRO_ID" in
+        ubuntu|debian|linuxmint|pop|elementary|kali|parrot)
+            PKG_MANAGER="apt-get"
+            PKG_UPDATE="apt-get update -qq >/dev/null 2>&1"
+            PKG_INSTALL="DEBIAN_FRONTEND=noninteractive apt-get install -y"
+            DEPS=(nginx python3 python3-venv curl jq procps)
+            CERTBOT_DEPS=(certbot python3-certbot-nginx)
+            PKG_CHECK="dpkg -l | grep -q \"^ii\""
+            ;;
+        fedora|centos|rhel|rocky|almalinux|oracle)
+            PKG_MANAGER="dnf"
+            PKG_UPDATE="dnf makecache -q >/dev/null 2>&1"
+            PKG_INSTALL="dnf install -y"
+            DEPS=(nginx python3 python3-venv curl jq procps)
+            CERTBOT_DEPS=(certbot python3-certbot-nginx)
+            PKG_CHECK="dnf list installed"
+            ;;
+        arch|manjaro|endeavouros|garuda)
+            PKG_MANAGER="pacman"
+            PKG_UPDATE="pacman -Sy --noconfirm >/dev/null 2>&1"
+            PKG_INSTALL="pacman -S --noconfirm"
+            DEPS=(nginx python python-virtualenv curl jq procps)
+            CERTBOT_DEPS=(certbot certbot-nginx)
+            PKG_CHECK="pacman -Q"
+            ;;
+        opensuse*|suse|sles)
+            PKG_MANAGER="zypper"
+            PKG_UPDATE="zypper refresh -q >/dev/null 2>&1"
+            PKG_INSTALL="zypper install -y"
+            DEPS=(nginx python3 python3-venv curl jq procps)
+            CERTBOT_DEPS=(certbot python3-certbot-nginx)
+            PKG_CHECK="zypper search -i"
+            ;;
+        alpine)
+            PKG_MANAGER="apk"
+            PKG_UPDATE="apk update >/dev/null 2>&1"
+            PKG_INSTALL="apk add --no-cache"
+            DEPS=(nginx python3 py3-virtualenv curl jq procps)
+            CERTBOT_DEPS=(certbot certbot-nginx)
+            PKG_CHECK="apk info -e"
+            ;;
+        *)
+            log_error "Unsupported Linux distribution: $DISTRO_ID"
+            log_info "Supported: Debian/Ubuntu, Fedora/RHEL/CentOS, Arch/Manjaro, openSUSE, Alpine"
+            exit 1
+            ;;
+    esac
+
+    log_info "Detected distribution: $DISTRO_ID (using $PKG_MANAGER)"
+
     # Update package list
-    apt-get update -qq >/dev/null 2>&1
+    eval "$PKG_UPDATE"
 
     # Install required packages
-    local deps=(nginx python3 python3-venv curl jq procps)
     local missing=()
-
-    for dep in "${deps[@]}"; do
-        if ! dpkg -l | grep -q "^ii  $dep"; then
+    for dep in "${DEPS[@]}"; do
+        if ! eval "$PKG_CHECK $dep" >/dev/null 2>&1; then
             missing+=("$dep")
         fi
     done
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         log_info "Installing missing dependencies: ${missing[*]}"
-        DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}" >/dev/null 2>&1
+        eval "$PKG_INSTALL ${missing[*]}" >/dev/null 2>&1
         log_success "Dependencies installed"
     else
         log_success "All dependencies already installed"
@@ -140,9 +204,15 @@ install_dependencies() {
 
     # Install certbot if HTTPS is enabled
     if [[ "$ENABLE_HTTPS" == "true" ]]; then
-        if ! dpkg -l | grep -q "^ii  certbot"; then
+        local certbot_missing=()
+        for dep in "${CERTBOT_DEPS[@]}"; do
+            if ! eval "$PKG_CHECK $dep" >/dev/null 2>&1; then
+                certbot_missing+=("$dep")
+            fi
+        done
+        if [[ ${#certbot_missing[@]} -gt 0 ]]; then
             log_info "Installing certbot for HTTPS..."
-            DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx >/dev/null 2>&1
+            eval "$PKG_INSTALL ${certbot_missing[*]}" >/dev/null 2>&1
             log_success "certbot installed"
         fi
     fi

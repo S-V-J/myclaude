@@ -63,22 +63,96 @@ check_root() {
     fi
 }
 
+# Detect Linux distribution
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        DISTRO_ID="${ID,,}"
+        return 0
+    else
+        log_error "Cannot detect Linux distribution (missing /etc/os-release)"
+        exit 1
+    fi
+}
+
 check_dependencies() {
     log_info "Checking dependencies..."
-    local deps=(certbot nginx python3-certbot-nginx)
-    local missing=()
 
-    for dep in "${deps[@]}"; do
-        if ! command -v "$dep" >/dev/null 2>&1; then
+    detect_distro
+
+    # Define package names per distribution for certbot
+    case "$DISTRO_ID" in
+        ubuntu|debian|linuxmint|pop|elementary|kali|parrot)
+            CERTBOT_DEPS=(certbot python3-certbot-nginx)
+            PKG_MANAGER="apt-get"
+            PKG_UPDATE="apt-get update -qq >/dev/null 2>&1"
+            PKG_INSTALL="DEBIAN_FRONTEND=noninteractive apt-get install -y"
+            PKG_CHECK="dpkg -l | grep -q \"^ii\""
+            ;;
+        fedora|centos|rhel|rocky|almalinux|oracle)
+            CERTBOT_DEPS=(certbot python3-certbot-nginx)
+            PKG_MANAGER="dnf"
+            PKG_UPDATE="dnf makecache -q >/dev/null 2>&1"
+            PKG_INSTALL="dnf install -y"
+            PKG_CHECK="dnf list installed"
+            ;;
+        arch|manjaro|endeavouros|garuda)
+            CERTBOT_DEPS=(certbot certbot-nginx)
+            PKG_MANAGER="pacman"
+            PKG_UPDATE="pacman -Sy --noconfirm >/dev/null 2>&1"
+            PKG_INSTALL="pacman -S --noconfirm"
+            PKG_CHECK="pacman -Q"
+            ;;
+        opensuse*|suse|sles)
+            CERTBOT_DEPS=(certbot python3-certbot-nginx)
+            PKG_MANAGER="zypper"
+            PKG_UPDATE="zypper refresh -q >/dev/null 2>&1"
+            PKG_INSTALL="zypper install -y"
+            PKG_CHECK="zypper search -i"
+            ;;
+        alpine)
+            CERTBOT_DEPS=(certbot certbot-nginx)
+            PKG_MANAGER="apk"
+            PKG_UPDATE="apk update >/dev/null 2>&1"
+            PKG_INSTALL="apk add --no-cache"
+            PKG_CHECK="apk info -e"
+            ;;
+        *)
+            log_error "Unsupported Linux distribution: $DISTRO_ID"
+            exit 1
+            ;;
+    esac
+
+    log_info "Detected distribution: $DISTRO_ID (using $PKG_MANAGER)"
+
+    # Check if certbot dependencies are installed
+    local missing=()
+    for dep in "${CERTBOT_DEPS[@]}"; do
+        if ! eval "$PKG_CHECK $dep" >/dev/null 2>&1; then
             missing+=("$dep")
         fi
     done
 
     if [[ ${#missing[@]} -gt 0 ]]; then
-        log_error "Missing dependencies: ${missing[*]}"
-        log_info "Install with: apt-get update && apt-get install -y ${missing[*]}"
+        log_info "Installing missing certbot dependencies: ${missing[*]}"
+        eval "$PKG_UPDATE"
+        eval "$PKG_INSTALL ${missing[*]}" >/dev/null 2>&1
+        log_success "Certbot dependencies installed"
+    fi
+
+    # Check nginx and certbot commands
+    local missing_cmds=()
+    for cmd in certbot nginx; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing_cmds+=("$cmd")
+        fi
+    done
+
+    if [[ ${#missing_cmds[@]} -gt 0 ]]; then
+        log_error "Missing required commands: ${missing_cmds[*]}"
         exit 1
     fi
+
     log_success "All dependencies found"
 }
 

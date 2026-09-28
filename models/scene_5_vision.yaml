@@ -1,0 +1,34 @@
+# Scene 5: Vision Models - Alternating Chain with Vision Support
+# Primary Chain: Nemotron-3-Ultra-550b (KEY_5) -> Nemotron-3-Super-120b (KEY_1) -> Nemotron-3-Ultra-550b (KEY_2)
+# Vision-capable fallbacks: Nemotron-3-Nano-Omni (vision+reasoning) and Llama-3.2-Vision
+- model_name: claude-3-5-sonnet-20241022
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 120000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-5-sonnet-20240620
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 120000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-5-sonnet-20241022
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 120000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-5-sonnet-20240620
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 120000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-5-sonnet-20241022
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 120000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-3-5-sonnet-20240620
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 120000, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+# Vision-capable specialized models (can be called by backend orchestration)
+- model_name: claude-3-5-sonnet-20241022-vision
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 0.6, top_p: 0.95, max_tokens: 65536, reasoning_budget: 16384, drop_params: true, num_retries: 3, timeout: 120000}
+  model_info: {mode: chat, supports_vision: true}
+- model_name: claude-3-5-sonnet-20240620-vision
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 0.6, top_p: 0.95, max_tokens: 65536, reasoning_budget: 16384, drop_params: true, num_retries: 3, timeout: 120000}
+  model_info: {mode: chat, supports_vision: true}
+- model_name: claude-3-5-sonnet-20241022-vision
+  litellm_params: {model: nvidia_nim/meta/llama-3.2-11b-vision-instruct, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 120000}
+  model_info: {mode: chat, supports_vision: true}
+- model_name: claude-3-5-sonnet-20240620-vision
+  litellm_params: {model: nvidia_nim/meta/llama-3.2-11b-vision-instruct, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 120000}
+  model_info: {mode: chat, supports_vision: true}

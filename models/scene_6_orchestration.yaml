@@ -1,0 +1,473 @@
+# Scene 6: Backend AI Model Orchestration System
+# Two primary router models (Ultra-550b, Super-120b) route to specialized worker models
+# based on task analysis: coding, vision, fast-response, high-throughput, etc.
+
+# ============================================================
+# PRIMARY ROUTER MODELS (The "Brains" - analyze requests and route)
+# ============================================================
+
+# Router 1: Nemotron-3-Ultra-550b (KEY_1) - Primary router for complex tasks
+- model_name: myclaude-router-ultra
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+    api_key: os.environ/NVIDIA_API_KEY_1
+    temperature: 0.3
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info:
+    mode: chat
+    role: router
+    capabilities: [reasoning, analysis, planning, complex_coding, architecture]
+
+# Router 2: Nemotron-3-Super-120b (KEY_2) - Secondary router for balanced tasks
+- model_name: myclaude-router-super
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+    api_key: os.environ/NVIDIA_API_KEY_2
+    temperature: 0.3
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info:
+    mode: chat
+    role: router
+    capabilities: [reasoning, analysis, coding, general, fast_response]
+
+# ============================================================
+# SPECIALIZED WORKER MODELS (The "Hands" - execute specific tasks)
+# ============================================================
+
+# --- CODING SPECIALISTS ---
+# DeepSeek Coder 6.7B - Fast, efficient code generation (KEY_3)
+- model_name: myclaude-worker-coder-deepseek
+  litellm_params:
+    model: nvidia_nim/deepseek-ai/deepseek-coder-6.7b-instruct
+    api_key: os.environ/NVIDIA_API_KEY_3
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 60000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: coding
+    languages: [python, javascript, typescript, go, rust, cpp, java, sql]
+    strengths: [code_generation, debugging, refactoring, code_review, unit_tests]
+    speed: fast
+    context_window: 16384
+
+# StarCoder2 15B - Strong multi-language code model (KEY_4)
+- model_name: myclaude-worker-coder-starcoder
+  litellm_params:
+    model: nvidia_nim/bigcode/starcoder2-15b
+    api_key: os.environ/NVIDIA_API_KEY_4
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 60000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: coding
+    languages: [python, javascript, typescript, go, rust, cpp, java, sql, bash, html, css]
+    strengths: [code_completion, generation, explanation, documentation, migration]
+    speed: medium
+    context_window: 16384
+
+# Codestral 22B - Mistral's dedicated code model (KEY_5)
+- model_name: myclaude-worker-coder-codestral
+  litellm_params:
+    model: nvidia_nim/mistralai/codestral-22b-instruct-v0.1
+    api_key: os.environ/NVIDIA_API_KEY_5
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 60000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: coding
+    languages: [python, javascript, typescript, go, rust, cpp, java, sql, swift, kotlin]
+    strengths: [fill_in_middle, code_generation, debugging, optimization, test_generation]
+    speed: medium
+    context_window: 32768
+
+# Granite 34B Code - IBM's large code model (KEY_1)
+- model_name: myclaude-worker-coder-granite-large
+  litellm_params:
+    model: nvidia_nim/ibm/granite-34b-code-instruct
+    api_key: os.environ/NVIDIA_API_KEY_1
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 90000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: coding
+    languages: [python, java, go, javascript, cpp, cobol]
+    strengths: [enterprise_code, legacy_migration, code_translation, security_analysis]
+    speed: medium
+    context_window: 16384
+
+# Granite 8B Code - Fast code model (KEY_2)
+- model_name: myclaude-worker-coder-granite-fast
+  litellm_params:
+    model: nvidia_nim/ibm/granite-8b-code-instruct
+    api_key: os.environ/NVIDIA_API_KEY_2
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 45000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: coding
+    languages: [python, java, go, javascript, cpp]
+    strengths: [fast_completion, boilerplate, simple_refactoring, code_search]
+    speed: very_fast
+    context_window: 16384
+
+# --- VISION SPECIALISTS ---
+# Nemotron-3-Nano-Omni 30B - Vision + Reasoning (KEY_3) - Already in scene_5
+- model_name: myclaude-worker-vision-nano-omni
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+    api_key: os.environ/NVIDIA_API_KEY_3
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 65536
+    reasoning_budget: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: vision_reasoning
+    capabilities: [image_analysis, ocr, chart_understanding, diagram_interpretation, visual_reasoning]
+    supports_vision: true
+    speed: fast
+    context_window: 65536
+
+# Llama 3.2 11B Vision - Pure vision (KEY_4) - Already in scene_5
+- model_name: myclaude-worker-vision-llama-11b
+  litellm_params:
+    model: nvidia_nim/meta/llama-3.2-11b-vision-instruct
+    api_key: os.environ/NVIDIA_API_KEY_4
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 65536
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: vision
+    capabilities: [image_description, object_detection, text_extraction, visual_qa]
+    supports_vision: true
+    speed: medium
+    context_window: 65536
+
+# Llama 3.2 90B Vision - High-quality vision (KEY_5)
+- model_name: myclaude-worker-vision-llama-90b
+  litellm_params:
+    model: nvidia_nim/meta/llama-3.2-90b-vision-instruct
+    api_key: os.environ/NVIDIA_API_KEY_5
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 65536
+    drop_params: true
+    num_retries: 3
+    timeout: 180000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: vision
+    capabilities: [detailed_analysis, complex_reasoning, multi_image, document_understanding]
+    supports_vision: true
+    speed: slow
+    context_window: 65536
+
+# --- FAST RESPONSE / HIGH THROUGHPUT ---
+# Gemma 3 12B - Very fast, efficient (KEY_1)
+- model_name: myclaude-worker-fast-gemma-12b
+  litellm_params:
+    model: nvidia_nim/google/gemma-3-12b-it
+    api_key: os.environ/NVIDIA_API_KEY_1
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 8192
+    drop_params: true
+    num_retries: 3
+    timeout: 30000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: fast_response
+    capabilities: [quick_answers, summaries, simple_qa, formatting, translation]
+    speed: very_fast
+    context_window: 8192
+
+# Gemma 3 4B - Ultra fast (KEY_2)
+- model_name: myclaude-worker-fast-gemma-4b
+  litellm_params:
+    model: nvidia_nim/google/gemma-3-4b-it
+    api_key: os.environ/NVIDIA_API_KEY_2
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 8192
+    drop_params: true
+    num_retries: 3
+    timeout: 20000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: fast_response
+    capabilities: [instant_replies, classification, simple_tasks, keyword_extraction]
+    speed: ultra_fast
+    context_window: 8192
+
+# Mistral 7B - Balanced fast model (KEY_3)
+- model_name: myclaude-worker-fast-mistral-7b
+  litellm_params:
+    model: nvidia_nim/mistralai/mistral-7b-instruct-v0.3
+    api_key: os.environ/NVIDIA_API_KEY_3
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 30000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: fast_response
+    capabilities: [general_chat, instruction_following, multilingual, structured_output]
+    speed: fast
+    context_window: 32768
+
+# --- HIGH THROUGHPUT / GENERAL PURPOSE ---
+# Mistral Large 2 - Strong general model (KEY_4)
+- model_name: myclaude-worker-general-mistral-large2
+  litellm_params:
+    model: nvidia_nim/mistralai/mistral-large-2-instruct
+    api_key: os.environ/NVIDIA_API_KEY_4
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 90000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: general_high_quality
+    capabilities: [complex_reasoning, long_context, multilingual, tool_use, analysis]
+    speed: medium
+    context_window: 131072
+
+# Nemotron 4 340B - If available (KEY_5) - Note: may have 404 issues
+- model_name: myclaude-worker-general-nemotron-4-340b
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-4-340b-instruct
+    api_key: os.environ/NVIDIA_API_KEY_5
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: general_high_quality
+    capabilities: [reasoning, long_context, instruction_following, analysis]
+    speed: medium
+    context_window: 131072
+
+# --- REASONING / ANALYSIS SPECIALISTS ---
+# Nemotron 3.5 Lightning 30B - Fast reasoning (KEY_1)
+- model_name: myclaude-worker-reasoning-lightning
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b
+    api_key: os.environ/NVIDIA_API_KEY_1
+    temperature: 0.5
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 60000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: reasoning
+    capabilities: [logical_reasoning, math, problem_solving, step_by_step_analysis]
+    speed: fast
+    context_window: 32768
+
+# Nemotron Nano 3 30B - Efficient reasoning (KEY_2)
+- model_name: myclaude-worker-reasoning-nano3
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-nano-3-30b-a3b
+    api_key: os.environ/NVIDIA_API_KEY_2
+    temperature: 0.5
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 60000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: reasoning
+    capabilities: [reasoning, analysis, planning, decision_making]
+    speed: fast
+    context_window: 32768
+
+# Yi Large - Strong general/Chinese capabilities (KEY_3)
+- model_name: myclaude-worker-general-yi-large
+  litellm_params:
+    model: nvidia_nim/01-ai/yi-large
+    api_key: os.environ/NVIDIA_API_KEY_3
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 90000
+  model_info:
+    mode: chat
+    role: worker
+    specialization: general_multilingual
+    capabilities: [chinese, english, reasoning, coding, translation]
+    speed: medium
+    context_window: 16384
+
+# ============================================================
+# FALLBACK CHAIN ALIASES (for backward compatibility)
+# These map to the router models for the standard Claude aliases
+# ============================================================
+
+# Primary fallback chain: Ultra -> Super -> Ultra (for claude-opus-5)
+- model_name: claude-opus-5
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+    api_key: os.environ/NVIDIA_API_KEY_1
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info: {mode: chat}
+
+- model_name: claude-opus-5
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+    api_key: os.environ/NVIDIA_API_KEY_2
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info: {mode: chat}
+
+- model_name: claude-opus-5
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+    api_key: os.environ/NVIDIA_API_KEY_3
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info: {mode: chat}
+
+# Sonnet aliases route to Super (balanced) with Ultra fallback
+- model_name: claude-sonnet-5
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+    api_key: os.environ/NVIDIA_API_KEY_4
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info: {mode: chat}
+
+- model_name: claude-sonnet-5
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+    api_key: os.environ/NVIDIA_API_KEY_5
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info: {mode: chat}
+
+- model_name: claude-sonnet-5
+  litellm_params:
+    model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b
+    api_key: os.environ/NVIDIA_API_KEY_1
+    temperature: 1.0
+    top_p: 0.95
+    max_tokens: 16384
+    drop_params: true
+    num_retries: 3
+    timeout: 120000
+    chat_template_kwargs: {enable_thinking: true}
+  model_info: {mode: chat}
+
+# Haiku aliases route to fast workers
+- model_name: claude-haiku-5
+  litellm_params:
+    model: nvidia_nim/google/gemma-3-12b-it
+    api_key: os.environ/NVIDIA_API_KEY_2
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 8192
+    drop_params: true
+    num_retries: 3
+    timeout: 30000
+  model_info: {mode: chat}
+
+- model_name: claude-haiku-5
+  litellm_params:
+    model: nvidia_nim/mistralai/mistral-7b-instruct-v0.3
+    api_key: os.environ/NVIDIA_API_KEY_3
+    temperature: 0.7
+    top_p: 0.95
+    max_tokens: 32768
+    drop_params: true
+    num_retries: 3
+    timeout: 30000
+  model_info: {mode: chat}
