@@ -46,6 +46,17 @@ MyClaude is an enterprise-grade, production-ready proxy and orchestration system
 
 ---
 
+## 💝 Sponsor Support
+
+If you find this project useful, please consider sponsoring its development:
+
+[![Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=EA4AAA&style=for-the-badge)](https://github.com/sponsors/S-V-J)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-EA4AAA?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/S-V-J)
+
+*Even a small contribution (e.g., $2) or a ⭐ star on this repository is highly appreciated. Thank you for believing in practical, open-source engineering!*
+
+---
+
 ## 📋 Installation
 
 ### 🚀 One-Command Installation (Recommended)
@@ -69,8 +80,8 @@ That's it! The installation script **automatically**:
 
 **After installation completes:**
 1. Edit `~/myclaude/.env` and replace placeholder NVIDIA API keys with your actual keys from [build.nvidia.com](https://build.nvidia.com/)
-2. Run: `sudo systemctl restart myclaude`
-3. Test with: `myclaude`
+2. Run: `myclaude` (this starts the proxy with dynamic ports and health checks)
+3. Test with: `claude` (or `myclaude`)
 
 ### ⚙️ Installation Options
 

@@ -444,6 +444,11 @@ install_launcher() {
     cp "$INSTALL_DIR/myclaude.sh" /usr/local/bin/myclaude
     chmod +x /usr/local/bin/myclaude
     log_success "Launcher installed at /usr/local/bin/myclaude"
+
+    # Create 'claude' command as alias to myclaude for seamless usage
+    log_info "Creating 'claude' command for myclaude proxy..."
+    ln -sf /usr/local/bin/myclaude /usr/local/bin/claude
+    log_success "Command 'claude' now runs myclaude proxy system"
 }
 
 set_permissions() {
