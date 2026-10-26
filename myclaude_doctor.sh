@@ -17,6 +17,13 @@ PASS=0; WARN=0; FAIL=0
 ok()   { echo "  ✅ $1"; PASS=$((PASS+1)); }
 warn() { echo "  ⚠️  $1"; WARN=$((WARN+1)); }
 bad()  { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
+# Session baseline, captured at the VERY TOP -- before §1's build_config.sh --check
+# imports the guard (every import appends a "module loaded" line), §3 imports again,
+# and §5/§6 put ~20 live calls through. Measured 2026-10-26: capturing this at §7
+# reported "grew 0 lines" for a run that had already generated 20+ calls, because §7
+# itself is read-only. The baseline must precede ALL of the run's traffic.
+BASE_LINES=$(wc -l < guard.log 2>/dev/null || echo 0)
+
 
 echo "═══════════ 1. CONFIG VALIDATION (read-only) ═══════════"
 if ./build_config.sh --check >/tmp/bc.log 2>&1; then
@@ -287,39 +294,111 @@ else
 fi
 
 echo "═══════════ 7. GUARD VISIBILITY (guard.log / litellm.log / journal) ═══════════"
-guard_grep() {  # -e kills the leading-dash trap; </dev/null can never block; sudo -n can never prompt
+# PER-SOURCE AUTHORITY -- forced by measurement on 2026-10-26, not by taste.
+# The guard's logger has TWO handlers by design:
+#   FileHandler           -> guard.log     (durable, complete)
+#   StreamHandler(stderr) -> journald      (partial, rolling copy)
+# So every GUARD-authored event exists in BOTH sources, but the journal only holds
+# the last N lines. Counting guard.log + journal together DOUBLE-COUNTS recent
+# events and UNDER-counts old ones: the doctor printed guard-failures=268 while
+# guard.log holds 251 and the journal 19 -- the same 19 events, twice. Rule:
+#   guard-authored patterns  -> count guard.log ONLY (fallback litellm.log)
+#   litellm-authored patterns -> count the journal ONLY
+#   never sum the SAME pattern across sources.
+# Existence checks MAY union (a line missing from one sink is not a missing
+# event), but every NUMBER comes from exactly one named source.
+gl_count() {  # guard-authored event count. guard.log is the authority when present.
+    local pat="$1" f=guard.log
+    [ -f "$f" ] || f=litellm.log
+    [ -f "$f" ] || { echo 0; return; }
+    grep -ciE -e "$pat" "$f" </dev/null 2>/dev/null || true
+}
+gl_lines() {  # the matching lines themselves, FILE ORDER (= chronological), no sort.
+    local pat="$1" f=guard.log
+    [ -f "$f" ] || f=litellm.log
+    [ -f "$f" ] || return 0
+    grep -hiE -e "$pat" "$f" </dev/null 2>/dev/null || true
+}
+# Journal readability must be DETECTED, not assumed. sudo -n never prompts -- it
+# fails fast, its error goes to stderr, and '2>/dev/null' would turn "not allowed
+# to look" into a silent zero. That is the exact trap the nginx check had, and the
+# KB flagged it for journalctl inside $( ): an expired cache must never masquerade
+# as "no events".
+JLINES=$(sudo -n journalctl -u myclaude --no-pager -n 2000 </dev/null 2>/dev/null | wc -l)
+if [ "${JLINES:-0}" -gt 0 ]; then JOK=1; else JOK=0; fi
+jc_count() {  # litellm-authored event count, journal only. Unreadable -> empty string.
+    local pat="$1"
+    [ "$JOK" -eq 1 ] || { echo ""; return; }
+    sudo -n journalctl -u myclaude --no-pager -n 2000 </dev/null 2>/dev/null \
+      | grep -ciE -e "$pat" || true
+}
+guard_grep() {  # EXISTENCE union across sinks. Never use its output as a count.
     local pat="$1"
     { [ -f guard.log ]   && grep -hiE -e "$pat" guard.log   </dev/null 2>/dev/null
       [ -f litellm.log ] && grep -hiE -e "$pat" litellm.log </dev/null 2>/dev/null
-      sudo -n journalctl -u myclaude --no-pager -n 800 </dev/null 2>/dev/null | grep -iE -e "$pat"
+      if [ "$JOK" -eq 1 ]; then sudo -n journalctl -u myclaude --no-pager -n 2000 </dev/null 2>/dev/null | grep -iE -e "$pat"; fi
       true; } | sort -u
 }
+
 [ -f guard.log ] && ok "guard.log exists ($(wc -l < guard.log) lines)" \
                  || bad "guard.log absent -> guard module was NEVER imported by the proxy process"
 WIRED=$(guard_grep "guard: module loaded")
-[ -n "$WIRED" ] && { ok "guard WIRED in the proxy process"; echo "$WIRED" | tail -1 | sed 's/^/     /'; } \
+[ -n "$WIRED" ] && { ok "guard WIRED in the proxy process"
+      # DISPLAY must be CHRONOLOGICAL. sort -u makes '23:13:02' the maximum of a
+      # text sort, so §7 had been printing an Oct-25 23:13 line as "the latest"
+      # while the newest was Oct-26 07:29 -- measured against ground truth this
+      # session. Tail the FILE, then filter; never sort-then-tail a timestamp.
+      gl_lines "guard: module loaded" | tail -1 | sed 's/^/     /'; } \
                || bad "no 'module loaded' — callbacks dead. Check PYTHONPATH drop-in + journal"
-# NEW in v4.1: prove the singleton was actually constructed in the proxy process,
-# not merely that the module imported (the crash-loop proved import without boot).
 SINGLE=$(guard_grep "proxy_handler_instance")
 [ -n "$SINGLE" ] && ok "singleton instance referenced in logs" \
                  || ok "guard silent on the singleton path (correct: it names the instance only when misconfigured)"
 ENGAGED=$(guard_grep "guard: (new bucket|sweeper started)")
-[ -n "$ENGAGED" ] && { ok "guard ENGAGED (buckets/sweeper logged)"; echo "$ENGAGED" | head -8 | sed 's/^/     /'; } \
+[ -n "$ENGAGED" ] && { ok "guard ENGAGED (buckets/sweeper logged)"
+      gl_lines "guard: (new bucket|sweeper started)" | tail -8 | sed 's/^/     /'; } \
                 || warn "guard wired but no bucket lines yet — normal before traffic; run tests/probe_proxy.py"
-DRIFT=$(guard_grep "got non-dict data" | wc -l)
+
+DRIFT=$(gl_count "got non-dict data")
 [ "$DRIFT" -eq 0 ] && ok "no signature-drift errors (guard is genuinely acquiring slots)" \
                    || bad "$DRIFT signature-drift lines — guard INERT; LiteLLM changed its hook dispatch"
-QT=$(guard_grep "guard: queue timeout" | wc -l)
-RC=$(guard_grep "SWEeper reclaiming"   | wc -l)
-PCF=$(guard_grep "post_call_failure released" | wc -l)
-FL=$(guard_grep "guard: failure"       | wc -l)
-COOL=$(guard_grep "cooldown"           | wc -l)
-RXH=$(guard_grep "ResourceExhausted|Worker local total" | wc -l)
+QT=$(gl_count "guard: queue timeout")
+RC=$(gl_count "SWEeper reclaiming")
+PCF=$(gl_count "post_call_failure released")
+FL=$(gl_count "guard: failure")
+# 'cooldown' is litellm-authored: guard.log holds ZERO matches for the word
+# (measured). But the router also emits a STATE DUMP, 'Cooldown Deployments=...',
+# which is not an event: all 40 journal matches on 2026-10-26 were one dump from a
+# single PID at a single instant (Oct 25 07:57:51). Subtract the dump lines and
+# report both numbers, so a state echo can never again be read as 40 cooldowns.
+COOL_ALL=$(jc_count "cooldown")
+COOL_DUMP=$(jc_count "Cooldown Deployments=")
+if [ "$JOK" -eq 0 ]; then
+  COOL="?"
+elif [ -z "$COOL_ALL" ]; then
+  COOL=0
+else
+  COOL=$((COOL_ALL - ${COOL_DUMP:-0}))
+fi
+# ResourceExhausted is guard-authored (its own 503 path); 'Worker local total' is
+# litellm-authored. DIFFERENT signatures from DIFFERENT sources -- adding those is
+# safe; adding the same signature across sources is what produced 268.
+RXH_G=$(gl_count "ResourceExhausted")
+RXH_J=$(jc_count "Worker local total"); RXH_J=${RXH_J:-0}
+RXH=$((RXH_G + RXH_J))
 echo "     queue-timeouts: $QT | sweeper-reclaims: $RC | post-call-failure-releases: $PCF"
-echo "     guard-failures: $FL | cooldowns: $COOL | ResourceExhausted: $RXH"
-[ "$RC" -gt 0 ] && warn "sweeper reclaimed $RC leaked slot(s) — a release path is still missing"
+echo "     guard-failures: $FL (guard.log, the authority) | ResourceExhausted: $RXH"
+if [ "$JOK" -eq 0 ]; then
+  warn "journal unreadable this pass (sudo -n refused) — litellm-authored counters (cooldown events, 'Worker local total') UNVERIFIED. Run 'sudo -v' and re-run."
+else
+  echo "     cooldown-events: $COOL (state-dump lines excluded: ${COOL_DUMP:-0})"
+fi
+if [ "$RC" -gt 0 ]; then
+  warn "sweeper reclaimed $RC leaked slot(s) — a release path is MISSING for this call shape; the ${RC:+1200s} backstop is the only thing that freed them"
+  gl_lines "SWEeper reclaiming" | tail -3 | sed 's/^/     /'
+fi
 [ "$RXH" -gt 0 ] && bad "$RXH ResourceExhausted reached a client — cap NOT enforced"
+NOW_LINES=$(wc -l < guard.log 2>/dev/null || echo 0)
+echo "     (guard.log grew $((NOW_LINES - ${BASE_LINES:-0})) lines during this run; totals above are cumulative since the file's start)"
 
 echo "═══════════ SUMMARY ═══════════"
 echo "  PASS=$PASS  WARN=$WARN  FAIL=$FAIL"
