@@ -393,7 +393,9 @@ else
   echo "     cooldown-events: $COOL (state-dump lines excluded: ${COOL_DUMP:-0})"
 fi
 if [ "$RC" -gt 0 ]; then
-  warn "sweeper reclaimed $RC leaked slot(s) — a release path is MISSING for this call shape; the ${RC:+1200s} backstop is the only thing that freed them"
+  warn "sweeper reclaimed $RC slot(s) — EITHER a leaked slot (a release path missed this shape) OR a false reclaim of a still-live call (max_hold below call duration); the log alone cannot distinguish"
+  echo "     discriminate: tests/probe_cancel.py reproduces abort shapes; slow-OK asymmetry — a COMPLETED call logs 'slow OK … cid=', a LEAKED one logs no terminal line"
+  echo "     known this file: 12:22:30 = parameter artifact (max_hold=60 < 65.1s control); 07:21:10 = unreproduced single anomaly, NOT the post-first-chunk abort (probe_cancel rc=0: that shape releases cleanly)"
   gl_lines "SWEeper reclaiming" | tail -3 | sed 's/^/     /'
 fi
 [ "$RXH" -gt 0 ] && bad "$RXH ResourceExhausted reached a client — cap NOT enforced"
