@@ -103,6 +103,15 @@ WorkingDirectory=$MYCLAUDE_DIR
 Environment="PYTHONPATH=$MYCLAUDE_DIR"
 Environment="MYCLAUDE_MAX_INFLIGHT=14"
 Environment="MYCLAUDE_ACQUIRE_TIMEOUT=120"
+# max_hold MUST exceed the longest LEGITIMATE hold. num_retries(3) x timeout(600)
+# = 1800s worst case, and a 1222s hold was measured on 2026-10-26 against the
+# guard default of 1200s. The sweeper has no liveness check (it compares only
+# now-ts > max_hold), so a false reclaim frees the slot WHILE ITS CALL STILL
+# RUNS: in-flight is under-counted and the guard OVER-ADMITS toward NVIDIA's
+# 16-worker wall -- the exact ResourceExhausted 503 this guard exists to
+# prevent. 2400 > 1800 with margin. Consequence: a reclaim at ~2400s is now
+# strong evidence of a GENUINE leak (see doctor s7 warn + tests/probe_cancel.py).
+Environment="MYCLAUDE_MAX_HOLD=2400"
 EOF
 
         echo "⚙️ Updating myclaude.service with port $LITELLM_PORT..."
