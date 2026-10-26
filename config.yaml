@@ -233,40 +233,40 @@ model_list:
 # Scene 5: Vision
 # Alias: claude-3-5-sonnet-20241022-vision | 12 entries | 6 keys x 2 | nano-omni ONLY | unified name
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 - model_name: claude-3-5-sonnet-20241022-vision
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.6, top_p: 0.95, max_tokens: 65536, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, reasoning_budget: 16384, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, supports_vision: true}
 
 # Scene 6: Orchestration — ROUTERS + WORKERS
@@ -297,7 +297,7 @@ model_list:
 
 # ===== VISION WORKERS (2) =====
 - model_name: myclaude-worker-vision-nano-omni
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 0.6, top_p: 0.95, max_tokens: 65536, reasoning_budget: 16384, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 0.6, top_p: 0.95, max_tokens: 65536, reasoning_budget: 16384, drop_params: true, num_retries: 3, timeout: 900, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, role: worker, specialization: vision_reasoning, supports_vision: true, speed: fast}
 - model_name: myclaude-worker-vision-supervl
   litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 0.6, top_p: 0.95, max_tokens: 32768, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
@@ -305,10 +305,10 @@ model_list:
 
 # ===== FAST WORKERS (2) =====
 - model_name: myclaude-worker-fast-lightning
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, role: worker, specialization: fast_response, speed: ultra_fast}
 - model_name: myclaude-worker-fast-lightning
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat, role: worker, specialization: fast_response, speed: ultra_fast}
 
 # ===== REASONING WORKERS (2) =====
@@ -329,8 +329,8 @@ model_list:
 
 # ===== HAIKU ALIAS (2) — was 50% pointing at the 404'd nano-3 =====
 - model_name: claude-haiku-5
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}
 - model_name: claude-haiku-5
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 0.7, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 3, timeout: 300, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}

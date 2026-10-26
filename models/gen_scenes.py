@@ -55,7 +55,7 @@ def vision_scene(alias, title):
     for k in KEYS:
         for _ in range(2):
             out.append(entry(alias, OMNI, k, 0.6, 65536, V_TIMEOUT,
-                             think=False, vis=True, extra=", reasoning_budget: 16384"))
+                             think=True,  vis=True, extra=", reasoning_budget: 16384"))
     return "".join(out)
 
 

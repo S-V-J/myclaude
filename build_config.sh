@@ -185,6 +185,55 @@ try:
 except ImportError as e:
     print(f"⚠️  concurrency_guard not importable at build time ({e}); doctor re-checks")
 
+# 9. THINKING DECLARED + BUDGET HEADROOM + NO FORCED STREAMING.
+#    Makes "all models have streaming and thinking" a build-time invariant.
+#    Key shape is THIS project's: chat_template_kwargs sits DIRECTLY under
+#    litellm_params (gen_scenes.py entry()), NOT under extra_body -- a check
+#    reading the nested form finds nothing and passes vacuously.
+#
+#    WHY HEADROOM IS PART OF THIS ASSERTION, NOT A FOLLOW-UP:
+#    doctor section 6 shows cells where reasoning consumes the ENTIRE budget and
+#    zero answer text is emitted --
+#        chat/bare     stream=False  txt=0 think=60  stop=length
+#        chat/+temp    stream=False  txt=0 think=65  stop=length
+#        msgs/+system  stream=False  txt=0 think=137 stop=max_tokens
+#    -- while tests/probe_think_stream.py at max_tokens=512 shows STARVED=0.
+#    Starvation is therefore BUDGET-DEPENDENT, not active at 512. That matters
+#    because Claude Code's auxiliary calls (session auto-title, rename, context
+#    compaction) use SMALL max_tokens. Flipping thinking on without a headroom
+#    floor is exactly the change that would regress the non-stream aux path that
+#    BUG A and BUG C were fixed for. Declare thinking AND reserve the answer.
+for m in ml:
+    lp = m.get("litellm_params") or {}
+    ctk = lp.get("chat_template_kwargs")
+    ctk = ctk if isinstance(ctk, dict) else {}
+    et = lp.get("enable_thinking", ctk.get("enable_thinking"))
+    think = lp.get("thinking")
+    if et is False:
+        errs.append(f"{m['model_name']}: enable_thinking is FALSE -- violates the "
+                    f"streaming+thinking requirement")
+    if et is None and not isinstance(think, dict):
+        errs.append(f"{m['model_name']}: thinking is UNDECLARED (no chat_template_kwargs."
+                    f"enable_thinking, no top-level enable_thinking, no thinking dict). "
+                    f"Runtime-accidental correctness is not a contract: it broke silently "
+                    f"for the vision alias until it didn't.")
+    if isinstance(think, dict):
+        if think.get("type") == "disabled":
+            errs.append(f"{m['model_name']}: thinking.type=disabled -- violates the requirement")
+        elif think.get("type") not in (None, "enabled"):
+            errs.append(f"{m['model_name']}: thinking.type={think.get('type')!r} unrecognised")
+    mt = lp.get("max_tokens")
+    bud = think.get("budget_tokens") if isinstance(think, dict) else None
+    if bud is None:
+        bud = lp.get("reasoning_budget")
+    if isinstance(bud, int) and isinstance(mt, int) and bud > mt - 1024:
+        errs.append(f"{m['model_name']}: reasoning budget {bud} leaves only {mt-bud} tokens "
+                    f"of answer headroom (need >=1024) -> reasoning will starve the answer")
+    if "stream" in lp:
+        errs.append(f"{m['model_name']}: 'stream' set in litellm_params -- BUG-C class. "
+                    f"Streaming is REQUEST-level; forcing it here sends an unknown/overridden "
+                    f"key to NVIDIA and breaks Claude Code's non-streaming aux calls.")
+
 # 7. Fallback targets must exist in model_list
 fb = (cfg.get("router_settings") or {}).get("fallbacks") or []
 for entry in fb:

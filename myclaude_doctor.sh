@@ -165,8 +165,20 @@ esac
 echo "═══════════ 4. SERVICES + CONFIG DRIFT + WORKER COUNT ═══════════"
 systemctl is-active --quiet myclaude && ok "myclaude.service active" || bad "myclaude.service inactive"
 systemctl is-active --quiet nginx    && ok "nginx.service active"    || bad "nginx inactive"
-(sudo -n nginx -t >/dev/null 2>&1 || nginx -t >/dev/null 2>&1) && ok "nginx config syntax valid" \
-                                                               || bad "nginx -t failed (sudo nginx -t)"
+# nginx -t needs root only to open the error log; the sudo credential cache can
+# expire mid-session. The old form tried `sudo -n nginx -t || nginx -t` and sent
+# both to /dev/null -- but bare `nginx -t` as non-root ALSO fails (error log /
+# pid permissions), so an AUTH expiry was indistinguishable from a BROKEN CONFIG
+# and false-FAILed a provably healthy stack (manual nginx -t passed, nginx was
+# serving, all 16 section-6 cells returned HTTP 200 through it). Separate the two
+# failure modes, and never discard nginx's own output.
+if sudo -n nginx -t >/tmp/mc_nginx_t.log 2>&1; then
+  ok "nginx config syntax valid"
+elif grep -qiE "a password is required|a terminal is required|no askpass|sudo:" /tmp/mc_nginx_t.log; then
+  warn "nginx -t NOT verified this pass: sudo credentials expired (run 'sudo -v', then re-run doctor)"
+else
+  bad "nginx -t FAILED:"; sed 's/^/     /' /tmp/mc_nginx_t.log | tail -6
+fi
 LP=$(cat .litellm_port 2>/dev/null); NP=$(cat .nginx_port 2>/dev/null)
 [ -n "$LP" ] && ok "litellm port=$LP" || bad ".litellm_port missing"
 [ -n "$NP" ] && ok "nginx port=$NP"   || bad ".nginx_port missing (claude cannot connect)"
@@ -291,7 +303,7 @@ WIRED=$(guard_grep "guard: module loaded")
 # not merely that the module imported (the crash-loop proved import without boot).
 SINGLE=$(guard_grep "proxy_handler_instance")
 [ -n "$SINGLE" ] && ok "singleton instance referenced in logs" \
-                 || warn "no proxy_handler_instance log line (expected: silent unless misconfigured)"
+                 || ok "guard silent on the singleton path (correct: it names the instance only when misconfigured)"
 ENGAGED=$(guard_grep "guard: (new bucket|sweeper started)")
 [ -n "$ENGAGED" ] && { ok "guard ENGAGED (buckets/sweeper logged)"; echo "$ENGAGED" | head -8 | sed 's/^/     /'; } \
                 || warn "guard wired but no bucket lines yet — normal before traffic; run tests/probe_proxy.py"
