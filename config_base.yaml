@@ -1,21 +1,48 @@
+# config_base.yaml - HEAD of config.yaml (build_config.sh appends scenes 1-6).
+# ---------------------------------------------------------------------------
+# Cross-cutting policy only. model_list entries live in models/scene_*.yaml so
+# a scene edit never touches policy and a policy edit never touches 74 entries.
+# ---------------------------------------------------------------------------
 litellm_settings:
+  # Claude Code speaks the Anthropic wire format; NIM speaks OpenAI. Translate
+  # Anthropic messages -> chat/completions instead of hitting an /anthropic
+  # route NVIDIA does not expose.
   use_chat_completions_url_for_anthropic_messages: true
-  num_retries: 2
-  request_timeout: 36000
+  num_retries: 3
+  request_timeout: 600          # SECONDS; per-deployment timeout overrides this
   master_key: os.environ/LITELLM_MASTER_KEY
-  drop_params: true
-  max_parallel_requests: 20
-  cache: false
+  drop_params: true             # silently discard fields NIM does not know
+  cache: false                  # no redis on this box; true here = boot loop
   log_level: "INFO"
   routing_strategy: "simple-shuffle"
+  # true caused 400s on nvidia_nim custom deployments (validates against
+  # LiteLLM's internal param/cost table, which does not know these ids).
   enable_pre_call_checks: false
   telemetry: false
-  callbacks: []
+
+  # v2.1: register the module-level INSTANCE.
+  # -----------------------------------------------------------------------
+  # Three shapes were tried; only this one survives both constraints:
+  #   bare functions  -> loaded, then 'function' object has no attribute
+  #                      'async_post_call_success_hook' on EVERY non-stream
+  #                      request (HTTP 400 /v1/chat/completions, 500 /v1/messages)
+  #   bare class      -> ValueError at boot from callback_utils.py: "neither a
+  #                      CustomLogger instance nor a callable" -> crash loop,
+  #                      systemd restart counter 20, unit latched in 'failed'
+  #   instance        -> accepted by the loader AND owns the full hook surface
+  # EXACTLY ONE entry. A second concurrency_guard callback makes
+  # async_pre_call_hook run twice per request => two acquisitions => effective
+  # cap 7/key. build_config.sh assertion 6 fails the build on count != 1.
+  callbacks:
+    - "concurrency_guard.proxy_handler_instance"
 
 general_settings:
-  global_max_parallel_requests: 20
-  request_timeout: 36000
-  num_retries: 2
+  # NO max_parallel_requests in litellm_settings: that is a GLOBAL cap and it
+  # would throttle all 6 keys to 14 in-flight TOTAL. Per-key 14 comes from
+  # scenes' max_parallel_requests: 7 x 2 deployments/key + the guard's queue.
+  global_max_parallel_requests: 84   # 6 keys x 14 = true global ceiling
+  request_timeout: 600
+  num_retries: 3
   health_check_interval: 120
 
 router_settings:
@@ -23,11 +50,18 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 30
   retry_after: 5
-  default_max_parallel_requests: 5
-  retry_on_rate_limit: true
-  retry_on_timeout: true
-  num_retries: 2
-  timeout: 60000
-  enable_loadbalancing: true
+  num_retries: 3
+  timeout: 600                  # SECONDS (an early draft had 60000 ms)
+  # `enable_loadbalancing` stays removed: not a real router kwarg, and an
+  # unknown key is silently ignored (or fatal on strict versions).
+  #
+  # Every target must exist in some scene or assertion 7 fails the build.
+  fallbacks:
+    - claude-opus-5: ["claude-opus-5-1m", "claude-sonnet-5", "claude-sonnet-5-1m", "claude-haiku-5"]
+    - claude-opus-5-1m: ["claude-opus-5", "claude-sonnet-5-1m", "claude-sonnet-5", "claude-haiku-5"]
+    - claude-sonnet-5: ["claude-sonnet-5-1m", "claude-opus-5", "claude-opus-5-1m", "claude-haiku-5"]
+    - claude-sonnet-5-1m: ["claude-sonnet-5", "claude-opus-5-1m", "claude-opus-5", "claude-haiku-5"]
+    - claude-haiku-5: ["claude-sonnet-5", "claude-opus-5"]
+    - claude-3-5-sonnet-20241022-vision: ["myclaude-worker-vision-supervl", "myclaude-worker-vision-nano-omni"]
 
 model_list:

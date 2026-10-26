@@ -1,18 +1,40 @@
-# Scene 1: Default (claude-opus-5)
-# Fallback Chain: Ultra -> Super -> Nano -> Laguna -> Ultra
-# Keys staggered: 1 -> 2 -> 3 -> 4 -> 1
+# Scene 1: Default
+# Alias: claude-opus-5 | 12 entries | 6 keys | Ultra -> 3.5-Super -> Ultra
+# super variant: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b
+# 7 max_parallel_requests/deployment => 14/key
 - model_name: claude-opus-5
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}
 - model_name: claude-opus-5
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-super-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}
 - model_name: claude-opus-5
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}
 - model_name: claude-opus-5
-  litellm_params: {model: nvidia_nim/poolside/laguna-xs-2.1, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 1.0, top_p: 0.95, max_tokens: 8192, drop_params: true, num_retries: 2, timeout: 30000}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_2, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}
 - model_name: claude-opus-5
-  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_1, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 2, timeout: 30000, chat_template_kwargs: {enable_thinking: true}}
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_3, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_4, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_5, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
+  model_info: {mode: chat}
+- model_name: claude-opus-5
+  litellm_params: {model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b, api_key: os.environ/NVIDIA_API_KEY_6, temperature: 1.0, top_p: 0.95, max_tokens: 16384, drop_params: true, num_retries: 3, timeout: 600, max_parallel_requests: 7, chat_template_kwargs: {enable_thinking: true}}
   model_info: {mode: chat}

@@ -70,3 +70,10 @@ LITELLM_MASTER_KEY.env
 .litellm_port
 .nginx_port
 .claude/
+.config_sha
+guard.log
+litellm.log
+*.pyc
+.litellm_pid
+.nginx_pid
+attic/
