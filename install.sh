@@ -335,6 +335,8 @@ NVIDIA_API_KEY_1="nvapi-placeholder-replace-with-your-key-1"
 NVIDIA_API_KEY_2="nvapi-placeholder-replace-with-your-key-2"
 NVIDIA_API_KEY_3="nvapi-placeholder-replace-with-your-key-3"
 NVIDIA_API_KEY_4="nvapi-placeholder-replace-with-your-key-4"
+NVIDIA_API_KEY_5="nvapi-placeholder-replace-with-your-key-5"
+NVIDIA_API_KEY_6="nvapi-placeholder-replace-with-your-key-6"
 
 # LiteLLM Master Key (generated automatically)
 LITELLM_MASTER_KEY="$master_key"
@@ -345,9 +347,11 @@ LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="true"
 # Idle Timeout (0 = always on, seconds otherwise)
 IDLE_TIMEOUT="0"
 
-# Dynamic ports (do not edit manually)
-LITELLM_PORT=${LITELLM_PORT}
-NGINX_PORT=${NGINX_PORT}
+# Port PINS. myclaude.sh reads MYCLAUDE_LITELLM_PORT / MYCLAUDE_NGINX_PORT; setting
+# them pins the ports across restarts (stops a restart re-allocating under a live
+# `claude` session -- observed 45133 -> 46411). Leave blank for ephemeral allocation.
+MYCLAUDE_LITELLM_PORT=${LITELLM_PORT}
+MYCLAUDE_NGINX_PORT=${NGINX_PORT}
 HTTPS_PORT=${HTTPS_PORT:-}
 
 # After installation:
@@ -360,8 +364,9 @@ EOF
 }
 
 build_config() {
-    log_info "Building LiteLLM config.yaml..."
+    log_info "Building LiteLLM config.yaml (under the venv, which has PyYAML)..."
     cd "$INSTALL_DIR"
+    source "$INSTALL_DIR/venv/bin/activate"
     ./build_config.sh
     log_success "config.yaml built successfully"
 }
@@ -382,25 +387,66 @@ install_systemd_service() {
         -e "s|__PORT__|${LITELLM_PORT}|g" \
         "${INSTALL_DIR}/litellm.service.template" > /etc/systemd/system/myclaude.service
 
+    # The guard is only importable under the unit if PYTHONPATH + caps are in a
+    # drop-in. myclaude.sh writes this on `start`, but install.sh starts the unit
+    # directly, so without this the fresh install runs GUARDLESS until someone runs
+    # `myclaude` once. Values mirror myclaude.sh (incl. MAX_HOLD=2400).
+    log_info "Installing systemd drop-in (PYTHONPATH + guard caps)..."
+    sudo mkdir -p /etc/systemd/system/myclaude.service.d
+    sudo tee /etc/systemd/system/myclaude.service.d/myclaude.conf >/dev/null <<DROPIN
+[Service]
+WorkingDirectory=${INSTALL_DIR}
+Environment="PYTHONPATH=${INSTALL_DIR}"
+Environment="MYCLAUDE_MAX_INFLIGHT=14"
+Environment="MYCLAUDE_ACQUIRE_TIMEOUT=120"
+Environment="MYCLAUDE_MAX_HOLD=2400"
+DROPIN
     systemctl daemon-reload
-    log_success "Systemd service installed on port ${LITELLM_PORT}"
+    log_success "Systemd service + drop-in installed on port ${LITELLM_PORT}"
 }
 
 install_nginx_config() {
-    log_info "Installing Nginx configuration..."
-    sed -e "s|__NGINX_PORT__|${NGINX_PORT}|g" \
-        -e "s|__LITELLM_PORT__|${LITELLM_PORT}|g" \
-        "$INSTALL_DIR/nginx-myclaude.conf" > /tmp/myclaude-nginx.conf
-    cp /tmp/myclaude-nginx.conf /etc/nginx/sites-available/myclaude
-    ln -sf /etc/nginx/sites-available/myclaude /etc/nginx/sites-enabled/myclaude
-
-    # Add rate limit zone to nginx.conf if not present
-    if ! grep -q "limit_req_zone.*myclaude" /etc/nginx/nginx.conf 2>/dev/null; then
-        sed -i '/http {/a\    limit_req_zone $binary_remote_addr zone=myclaude:10m rate=16r/s;' /etc/nginx/nginx.conf
-    fi
-
-    nginx -t && systemctl reload nginx
-    log_success "Nginx configured on port ${NGINX_PORT}"
+    log_info "Installing Nginx per-key limit zone + server block..."
+    sudo mkdir -p /etc/nginx/conf.d
+    cat << 'LIMIT_EOF' | sudo tee /etc/nginx/conf.d/myclaude-limit.conf > /dev/null
+# Per-API-key rate limit (30 r/m) -- NVIDIA free tier ~40 r/m; stay under 30.
+limit_req_zone $http_authorization zone=api_key_limit:10m rate=30r/m;
+LIMIT_EOF
+    cat << NGINX_EOF | sudo tee /etc/nginx/sites-available/myclaude > /dev/null
+server {
+    listen ${NGINX_PORT};
+    listen [::]:${NGINX_PORT};
+    server_name localhost _;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    client_max_body_size 50M;
+    client_body_timeout 120s;
+    client_header_timeout 60s;
+    send_timeout 3600s;
+    location / {
+        limit_req zone=api_key_limit burst=10 nodelay;
+        limit_req_status 429;
+        limit_req_log_level warn;
+        proxy_pass http://127.0.0.1:${LITELLM_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 3600s;
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+    location = /health { access_log off; return 200 "healthy"; add_header Content-Type text/plain; }
+    location ~ ^/(admin|config|keys|spend) { deny all; return 404; }
+}
+NGINX_EOF
+    sudo ln -sf /etc/nginx/sites-available/myclaude /etc/nginx/sites-enabled/myclaude
+    sudo nginx -t && sudo systemctl reload nginx
+    log_success "Nginx configured on port ${NGINX_PORT} (per-key zone only)"
 }
 
 install_logrotate() {
@@ -445,10 +491,12 @@ install_launcher() {
     chmod +x /usr/local/bin/myclaude
     log_success "Launcher installed at /usr/local/bin/myclaude"
 
-    # Create 'claude' command as alias to myclaude for seamless usage
-    log_info "Creating 'claude' command for myclaude proxy..."
-    ln -sf /usr/local/bin/myclaude /usr/local/bin/claude
-    log_success "Command 'claude' now runs myclaude proxy system"
+    # We deliberately do NOT create a 'claude' symlink: myclaude.sh start launches the
+    # proxy and prints "Type 'claude'..."; it does NOT exec the Claude Code CLI, so
+    # shadowing `claude` would replace the user's real CLI with a proxy-starter that
+    # never starts Claude Code. The proxy is selected via ANTHROPIC_BASE_URL / the
+    # .nginx_port file, not by hijacking the command name.
+    log_info "Launcher installed at /usr/local/bin/myclaude (the 'claude' CLI is left untouched)"
 }
 
 set_permissions() {
