@@ -3,7 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/S-V-J/myclaude?style=social)](https://github.com/S-V-J/myclaude/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/S-V-J/myclaude?style=social)](https://github.com/S-V-J/myclaude/network/members)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/S-V-J/myclaude/actions)
 [![Docker Pulls](https://img.shields.io/docker/pulls/svj/myclaude)](https://hub.docker.com/r/svj/myclaude)
 
 ## 🚀 Overview
@@ -23,7 +22,7 @@ MyClaude is an enterprise-grade, production-ready proxy and orchestration system
 - **Health Monitoring**: Real-time tracking of success rates, latency percentiles (P50/P95/P99), and consecutive failures
 - **Intelligent Retry Logic**: Exponential backoff with jitter, configurable max retries, and smart error classification
 - **API Key Rotation**: Staggered usage across fallback chains to maximize NVIDIA quota utilization
-- **Rate Limiting**: Dual-layer protection - global 16r/s + per-API-key 30r/m (NVIDIA compliant)
+- **Rate Limiting**: Per-API-key 30r/m (NVIDIA compliant) via an nginx `limit_req` zone on `$http_authorization`
 
 ### ⚡ **Performance & Scaling**
 - **Autonomous Fan-Out Execution**: 5 strategies (RACE, BEST_OF_N, CONSENSUS, ALL, PARALLEL_KEYS) with 5 aggregation methods
@@ -33,7 +32,7 @@ MyClaude is an enterprise-grade, production-ready proxy and orchestration system
 
 ### 🛠️ **Production-Ready Infrastructure**
 - **Multi-Distro Installation**: One-command install on Debian/Ubuntu, Fedora/RHEL, Arch/Manjaro, openSUSE, Alpine
-- **Dynamic Port Assignment**: Automatic port discovery to avoid conflicts (8000-50000 range)
+- **Dynamic Port Assignment**: Ephemeral port allocation (`bind(("",0))`) recorded in `.litellm_port`/`.nginx_port`; optionally pinned via `MYCLAUDE_LITELLM_PORT`/`MYCLAUDE_NGINX_PORT` in `.env`
 - **Security Hardening**: systemd services with NoNewPrivileges, ProtectSystem=full, ProtectHome=read-only
 - **Comprehensive Logging**: Structured JSON logging with health check endpoints
 - **Backup & Recovery**: Built-in utilities for configuration backup/restore
@@ -42,7 +41,7 @@ MyClaude is an enterprise-grade, production-ready proxy and orchestration system
 - **Rich Status Reporting**: Detailed health metrics for all subsystems
 - **Prometheus Metrics Endpoint**: `/metrics` for monitoring and alerting
 - **Health Checks**: `/health`, `/health/litellm` for service monitoring
-- **Rich CLI Interface**: `myclaude status`, `myclaude logs`, `myclaude restart`
+- **Rich CLI Interface**: `myclaude status`, `myclaude restart`, `myclaude stop`
 
 ---
 
@@ -70,11 +69,11 @@ sudo ./install.sh
 
 That's it! The installation script **automatically**:
 1. ✅ Detects your Linux distribution and installs required dependencies
-2. ✅ Discovers free ports to avoid conflicts (8000-50000 range)
+2. ✅ Discovers free ports to avoid conflicts
 3. ✅ Creates Python virtual environment and installs dependencies
 4. ✅ Generates secure configuration with random master key
 5. ✅ Sets up systemd service with security hardening
-6. ✅ Configures nginx reverse proxy with dual rate limiting (global + per-API-key)
+6. ✅ Configures nginx reverse proxy with per-API-key rate limiting
 7. ✅ Installs logrotate configuration
 8. ✅ Starts all services and verifies health
 
@@ -137,7 +136,7 @@ sudo ./install.sh --dir /opt/myclaude --user myclaude --https --domain api.examp
 ```
 User Request 
     → myclaude.sh (dynamic port manager)
-    → nginx (reverse proxy with dual rate limiting)
+    → nginx (reverse proxy, per-API-key rate limiting)
     → LiteLLM proxy (systemd service, security hardened)
     → Resilient Fallback Manager (circuit breakers, health monitoring)
     → Backend Orchestrator (task analysis & routing)
@@ -191,7 +190,7 @@ sudo journalctl -u nginx -f
 ./utils/status.sh --live   # Live log view
 
 # View application logs
-tail -f ~/myclaude/logs/litellm.log
+tail -f ~/myclaude/guard.log
 
 # Restart services
 sudo systemctl restart myclaude nginx
@@ -251,17 +250,17 @@ sudo journalctl -u myclaude -n 50
 sudo journalctl -u nginx -n 50
 
 # Check port conflicts
-ss -tuln | grep -E ':(8000|8001|8443)'
+ss -tuln   # live ports: cat ~/myclaude/.nginx_port and ~/myclaude/.litellm_port (not a fixed range)
 ```
 
 ### Health Checks Failing
 ```bash
 # Test nginx health
-curl http://localhost:$(grep NGINX_PORT ~/myclaude/.env | cut -d= -f2)/health
+curl http://localhost:$(cat ~/myclaude/.nginx_port)/health
 
 # Test LiteLLM health (requires master key)
 MASTER_KEY=$(grep LITELLM_MASTER_KEY ~/myclaude/.env | cut -d= -f2 | sed 's/^"//;s/"$//')
-curl -H "Authorization: Bearer $MASTER_KEY" http://localhost:$(grep LITELLM_PORT ~/myclaude/.env | cut -d= -f2)/health
+curl -H "Authorization: Bearer $MASTER_KEY" http://localhost:$(cat ~/myclaude/.litellm_port)/health
 
 # Test full health check
 ./utils/status.sh
@@ -269,9 +268,9 @@ curl -H "Authorization: Bearer $MASTER_KEY" http://localhost:$(grep LITELLM_PORT
 
 ### NVIDIA API Key Issues
 - Verify keys are valid at [build.nvidia.com](https://build.nvidia.com/)
-- Check all keys are set in `.env` (NVIDIA_API_KEY_1 through NVIDIA_API_KEY_5)
+- Check all keys are set in `.env` (NVIDIA_API_KEY_1 through NVIDIA_API_KEY_6)
 - Ensure keys have access to required Nemotron models
-- Check LiteLLM logs for auth errors: `tail -f ~/myclaude/logs/litellm.log`
+- Check LiteLLM logs for auth errors: `tail -f ~/myclaude/guard.log`
 
 ### Port Conflicts
 ```bash
@@ -334,8 +333,8 @@ myclaude/
 |-------|----------------|
 | **systemd** | `NoNewPrivileges=true`, `PrivateTmp=true`, `ProtectSystem=full`, `ProtectHome=read-only`, `ReadWritePaths=logs`, `ProtectKernelTunables=yes`, `ProtectKernelModules=yes` |
 | **nginx** | Security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy), admin path blocking (`/admin/*`, `/config/*`, etc.), IP-restricted metrics (`/metrics`) |
-| **Rate Limiting** | Global 16r/s + per-API-key 30r/m (NVIDIA NIM compliant) via nginx limit_req zones |
-| **File Permissions** | `.env` = 640, install directory = 750, owned by service user |
+| **Rate Limiting** | Per-API-key 30r/m (NVIDIA NIM compliant) via an nginx `limit_req` zone on `$http_authorization` |
+| **File Permissions** | `.env` = 600, install directory = 750, owned by service user |
 | **TLS/SSL** | TLS 1.2/1.3 only, modern cipher suites, HSTS, OCSP stapling (when enabled via setup-tls.sh) |
 | **Process Isolation** | systemd service isolation, nginx worker process separation |
 | **Secrets Management** | API keys never logged, master key auto-generated, .env file protected |
