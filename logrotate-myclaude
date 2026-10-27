@@ -1,33 +1,30 @@
 # MyClaude logrotate configuration
 # Install: sudo cp logrotate-myclaude /etc/logrotate.d/myclaude
-# Note: Paths will be replaced at install time with actual REPO_DIR
-
-# LiteLLM application logs
-__REPO_DIR__/logs/litellm.log {
+#          (install.sh's install_logrotate() renders __REPO_DIR__ / __SERVICE_USER__ at install time)
+#
+# REWRITTEN 2026-10-27 after reading the live tree. The previous file had TWO stanzas
+# and ZERO effective rotation:
+#   * '__REPO_DIR__/logs/litellm.log' -- the live system writes its durable evidence to
+#     '__REPO_DIR__/guard.log' at the repo ROOT (concurrency_guard's FileHandler).
+#     litellm.log was archived to attic/ and logs/ is never written, so this stanza
+#     matched nothing (missingok = silent no-op) while guard.log grew unbounded.
+#   * '/var/log/nginx/myclaude*.log' -- the generated nginx site sets only
+#     'access_log off' on /health and writes NO myclaude*.log; nginx's real logs are
+#     /var/log/nginx/{access,error}.log, which the DISTRO's /etc/logrotate.d/nginx
+#     already rotates, so a second stanza here would double-rotate.
+# guard.log itself had NO stanza -- the one log that records every acquire/release/
+# reclaim, the slow-OK asymmetry, and the 07:21:10 + 12:22:30 reclaims had no retention.
+#
+# copytruncate, NOT create+reload: concurrency_guard holds guard.log open via a
+# logging.FileHandler (append mode). 'create' rotates the inode and leaves the handler
+# writing to the renamed file; 'copytruncate' copies then truncates the SAME inode, so
+# the open handler keeps appending with no reopen and no postrotate signal.
+__REPO_DIR__/guard.log {
     daily
     rotate 14
     compress
     delaycompress
     missingok
     notifempty
-    create 640 __SERVICE_USER__ __SERVICE_USER__
-    sharedscripts
-    postrotate
-        systemctl reload myclaude > /dev/null 2>&1 || true
-    endscript
-}
-
-# Nginx access/error logs for myclaude
-/var/log/nginx/myclaude*.log {
-    daily
-    rotate 14
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 640 www-data www-data
-    sharedscripts
-    postrotate
-        [ -f /var/run/nginx.pid ] && kill -USR1 $(cat /var/run/nginx.pid) 2>/dev/null || true
-    endscript
+    copytruncate
 }
