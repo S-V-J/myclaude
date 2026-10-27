@@ -349,7 +349,7 @@ IDLE_TIMEOUT="0"
 
 # Port PINS. myclaude.sh reads MYCLAUDE_LITELLM_PORT / MYCLAUDE_NGINX_PORT; setting
 # them pins the ports across restarts (stops a restart re-allocating under a live
-# `claude` session -- observed 45133 -> 46411). Leave blank for ephemeral allocation.
+# 'claude' session -- observed 45133 -> 46411). Leave blank for ephemeral allocation.
 MYCLAUDE_LITELLM_PORT=${LITELLM_PORT}
 MYCLAUDE_NGINX_PORT=${NGINX_PORT}
 HTTPS_PORT=${HTTPS_PORT:-}
