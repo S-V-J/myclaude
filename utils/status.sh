@@ -1,9 +1,17 @@
 #!/bin/bash
 # MyClaude Status Utility
 # Shows status of MyClaude services and health checks
-# Reads ports dynamically from .env file
+# Port precedence: .nginx_port/.litellm_port (live, written by myclaude.sh on
+# every start) > .env (install-time / MYCLAUDE_* pins) > 8000/8001 last resort.
 
-set -euo pipefail
+# set -uo pipefail, NOT -e. This is a REPORTING tool: every check_* function
+# returns 1 to signal "this is broken", and main() calls them bare. Under `set -e`
+# the script aborted at the first bad news it found (and, before 2026-10-27, it
+# aborted even earlier: read_ports_from_env's HTTPS_PORT=$(grep …) returns 1 when
+# .env has no HTTPS_PORT line, which is every myclaude.sh-managed box -- so the
+# tool was dead on arrival and could never print a report at all). A status report
+# must never die because something is wrong. -u keeps typos fatal; pipefail keeps
+# pipelines honest.
 
 # Colors
 RED='\033[0;31m'
@@ -102,18 +110,32 @@ check_health_endpoint() {
 }
 
 read_ports_from_env() {
-    local env_file="$REPO_DIR/.env"
+    # PRECEDENCE (fixed 2026-10-27). The LIVE ports live in the runtime dot-files
+    # myclaude.sh writes on every start (.nginx_port / .litellm_port). .env carries
+    # only install-time values / optional MYCLAUDE_* pins and goes stale the moment
+    # myclaude re-allocates (observed: 45133 -> 46411 under a running session).
+    # Reading .env FIRST made this tool check 8000/8001 against a system on
+    # ephemeral ports and print an ALL-RED report on a healthy box. doctor s4 and
+    # tests/probe_cancel already read the dot-files; this aligns status.sh.
     NGINX_PORT=""
     LITELLM_PORT=""
     HTTPS_PORT=""
 
+    # 1. Runtime dot-files = the actual live ports (authoritative).
+    [[ -f "$REPO_DIR/.nginx_port"   ]] && NGINX_PORT=$(tr -d '[:space:]' < "$REPO_DIR/.nginx_port")
+    [[ -f "$REPO_DIR/.litellm_port" ]] && LITELLM_PORT=$(tr -d '[:space:]' < "$REPO_DIR/.litellm_port")
+
+    # 2. .env = install-time values or explicit pins (fallback). Matches BOTH the
+    #    current install.sh name (NGINX_PORT) and the post-B1 pin name
+    #    (MYCLAUDE_NGINX_PORT) so this tool is correct before AND after B1 lands.
+    local env_file="$REPO_DIR/.env"
     if [[ -f "$env_file" ]]; then
-        NGINX_PORT=$(grep -E '^NGINX_PORT=' "$env_file" 2>/dev/null | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//")
-        LITELLM_PORT=$(grep -E '^LITELLM_PORT=' "$env_file" 2>/dev/null | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//")
-        HTTPS_PORT=$(grep -E '^HTTPS_PORT=' "$env_file" 2>/dev/null | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//")
+        [[ -z "$NGINX_PORT"   ]] && NGINX_PORT=$(grep -E '^(MYCLAUDE_)?NGINX_PORT='   "$env_file" 2>/dev/null | head -1 | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//")
+        [[ -z "$LITELLM_PORT" ]] && LITELLM_PORT=$(grep -E '^(MYCLAUDE_)?LITELLM_PORT=' "$env_file" 2>/dev/null | head -1 | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//")
+        HTTPS_PORT=$(grep -E '^HTTPS_PORT=' "$env_file" 2>/dev/null | head -1 | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//")
     fi
 
-    # Fallback to environment variables or reasonable defaults
+    # 3. Last-resort guess (the caller prints these as the ports it checked).
     NGINX_PORT="${NGINX_PORT:-8000}"
     LITELLM_PORT="${LITELLM_PORT:-8001}"
     HTTPS_PORT="${HTTPS_PORT:-}"
@@ -124,9 +146,9 @@ show_recent_logs() {
     local lines="${2:-20}"
     echo
     echo -e "${CYAN}Recent $service logs (last $lines lines):${NC}"
-    if [[ -f "$REPO_DIR/logs/litellm.log" ]]; then
-        echo -e "${YELLOW}LiteLLM logs:${NC}"
-        tail -n "$lines" "$REPO_DIR/logs/litellm.log" || true
+    if [[ -f "$REPO_DIR/guard.log" ]]; then
+        echo -e "${YELLOW}Guard logs (concurrency_guard evidence):${NC}"
+        tail -n "$lines" "$REPO_DIR/guard.log" || true
     fi
     if systemctl is-active --quiet "$service" 2>/dev/null; then
         echo -e "${YELLOW}Systemd logs:${NC}"
@@ -206,8 +228,8 @@ main() {
     # Show logs if requested
     if [[ "$LIVE_LOGS" == true ]]; then
         echo -e "${CYAN}Live Logs (Press Ctrl+C to exit):${NC}"
-        if [[ -f "$REPO_DIR/logs/litellm.log" ]]; then
-            tail -f "$REPO_DIR/logs/litellm.log" &
+        if [[ -f "$REPO_DIR/guard.log" ]]; then
+            tail -f "$REPO_DIR/guard.log" &
             TAIL_PID=$!
         fi
         if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
