@@ -43,13 +43,15 @@ EOF
 }
 
 parse_args() {
+    SUBCMD="backup"; REMAIN=()
     while [[ $# -gt 0 ]]; do
         case $1 in
             --repo-dir) REPO_DIR="$2"; shift 2 ;;
             --backup-dir) BACKUP_DIR="$2"; shift 2 ;;
             --include-logs) INCLUDE_LOGS=true; shift ;;
             --help) usage ;;
-            *) log_error "Unknown option: $1"; usage ;;
+            -*) log_error "Unknown option: $1"; usage ;;
+            *) SUBCMD="$1"; shift; REMAIN=("$@"); break ;;   # first non-option = subcommand
         esac
     done
 }
@@ -70,10 +72,14 @@ create_backup() {
         "config_base.yaml"
         "requirements.txt"
         "models/"
-        "nginx-myclaude.conf"
         "logrotate-myclaude"
         "myclaude.sh"
         "build_config.sh"
+        "concurrency_guard.py"
+        "myclaude_doctor.sh"
+        "tests/"
+        "install.sh"
+        "uninstall.sh"
         "litellm.service.template"
         "setup-tls.sh"
     )
@@ -86,9 +92,15 @@ create_backup() {
     done
 
     # Backup logs if requested
-    if [[ "$INCLUDE_LOGS" == "true" ]] && [[ -d "$REPO_DIR/logs" ]]; then
-        cp -r "$REPO_DIR/logs" "$backup_path/"
-        log_info "Backed up: logs/"
+    if [[ "$INCLUDE_LOGS" == "true" ]]; then
+        # The durable evidence log is guard.log at the repo ROOT (concurrency_guard's
+        # FileHandler), NOT a logs/ dir the live system never writes. The glob also
+        # picks up rotated copies (guard.log.1, guard.log.2.gz) once logrotate runs.
+        local copied=0
+        for lg in "$REPO_DIR"/guard.log "$REPO_DIR"/guard.log.*; do
+            if [[ -f "$lg" ]]; then cp -a "$lg" "$backup_path/"; copied=1; log_info "Backed up: $(basename "$lg")"; fi
+        done
+        [[ "$copied" -eq 0 ]] && log_warn "--include-logs: no guard.log found (nothing to copy)"
     fi
 
     # Backup system configs (if running as root)
@@ -209,25 +221,13 @@ list_backups() {
 
 main() {
     parse_args "$@"
-
-    case "${1:-backup}" in
-        backup)
-            create_backup
-            ;;
+    case "$SUBCMD" in
+        backup) create_backup ;;
         restore)
-            if [[ $# -lt 2 ]]; then
-                log_error "Usage: $0 restore <backup-file>"
-                exit 1
-            fi
-            restore_backup "$2"
-            ;;
-        list)
-            list_backups
-            ;;
-        *)
-            log_error "Unknown command: $1"
-            usage
-            ;;
+            if [[ ${#REMAIN[@]} -lt 1 ]]; then log_error "Usage: $0 restore <backup-file>"; exit 1; fi
+            restore_backup "${REMAIN[0]}" ;;
+        list) list_backups ;;
+        *) log_error "Unknown command: $SUBCMD"; usage ;;
     esac
 }
 
