@@ -209,13 +209,12 @@ main() {
     # Health checks (from .env, not hardcoded)
     echo -e "${CYAN}Health Checks:${NC}"
     check_health_endpoint "http://localhost:${NGINX_PORT}/health" "Nginx"
-    check_health_endpoint "http://localhost:${LITELLM_PORT}/health/litellm" "LiteLLM"
+    check_health_endpoint "http://localhost:${LITELLM_PORT}/health/liveliness" "LiteLLM (liveliness)"
 
-    local master_key
-    master_key=$(grep "LITELLM_MASTER_KEY" "$REPO_DIR/.env" 2>/dev/null | cut -d= -f2 | sed "s/^[\"']//; s/[\"']$//" || echo "")
-    if [[ -n "$master_key" ]]; then
-        check_health_endpoint "http://localhost:${LITELLM_PORT}/health" "LiteLLM (with auth)"
-    fi
+# (No authenticated /health probe here on purpose: /health makes model test-calls
+#  to every deployment = NVIDIA quota + burst; and the old "with auth" check sent
+#  no header, so it only produced guard post_call_failure noise. liveliness above
+#  is the clean backend check; doctor s5/s6 own authenticated/model probing.)
     echo
 
     # Configuration files
