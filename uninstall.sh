@@ -9,12 +9,17 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Defaults
 INSTALL_DIR="${MYCLAUDE_INSTALL_DIR:-$HOME/myclaude}"
 SERVICE_NAME="myclaude"
 SKIP_BACKUP="${SKIP_BACKUP:-false}"
+# Derive the service user the way install.sh does: under sudo $USER is root,
+# so read MYCLAUDE_SERVICE_USER / SUDO_USER / logname. print_summary references
+# this; unbound, `set -u` killed the script after all removal was done.
+SERVICE_USER="${MYCLAUDE_SERVICE_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo '')}}"
 
 log_info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $*"; }
